@@ -1,0 +1,228 @@
+<UserControl x:Class="MathFuzzy.Desktop.Views.Algorithm.AlgorithmPanelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MathFuzzy.Desktop.ViewModels.Algorithm">
+
+    <StackPanel>
+
+        <!-- Algorithm chip + category ─────────────────────────────── -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+            <Border Style="{StaticResource AlgorithmChip}" Margin="0,0,8,0">
+                <TextBlock Style="{StaticResource AlgorithmChipText}"
+                           Text="{Binding ChipText}"/>
+            </Border>
+            <TextBlock Text="{Binding CategoryText}"
+                       Style="{StaticResource LabelText}"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- Relational variant: D-AFC(c) with a given c, or D-PAFC searching the least c -->
+        <StackPanel Margin="0,0,0,12"
+                    Visibility="{Binding IsRelational, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="74"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                           Text="Variant" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1"
+                          AutomationProperties.Name="Relational variant"
+                          ItemsSource="{Binding RelationalVariants}"
+                          SelectedItem="{Binding SelectedAlgorithm}"/>
+            </Grid>
+            <TextBlock Margin="74,4,0,0" FontSize="11" TextWrapping="Wrap"
+                       Foreground="{StaticResource Subtext0Brush}"
+                       Text="{Binding VariantDescription}"/>
+        </StackPanel>
+
+        <!-- 2-column param rows: label (left) | control (right) ───── -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- 0  Distance      -->
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>   <!-- 2  Normalization -->
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>   <!-- 4  Criterion     -->
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>   <!-- 6  Accuracy ε    -->
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>   <!-- 8  Max results   -->
+            </Grid.RowDefinitions>
+
+            <!-- Distance -->
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       Style="{StaticResource ParamLabel}"
+                       Text="Distance" VerticalAlignment="Center"/>
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      AutomationProperties.Name="Distance"
+                      ItemsSource="{Binding Distances}"
+                      SelectedItem="{Binding SelectedDistance}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <!-- Normalization (2.11 x/max, 2.12 min-max) -->
+            <TextBlock Grid.Row="2" Grid.Column="0"
+                       Style="{StaticResource ParamLabel}"
+                       Text="Normalize" VerticalAlignment="Center"/>
+            <ComboBox Grid.Row="2" Grid.Column="1"
+                      AutomationProperties.Name="Normalization"
+                      ItemsSource="{Binding Normalizations}"
+                      SelectedItem="{Binding SelectedNormalization}"/>
+
+            <!-- Criterion -->
+            <TextBlock Grid.Row="4" Grid.Column="0"
+                       Style="{StaticResource ParamLabel}"
+                       Text="Criterion" VerticalAlignment="Center"/>
+            <ComboBox Grid.Row="4" Grid.Column="1"
+                      AutomationProperties.Name="Criterion"
+                      ItemsSource="{Binding Criteria}"
+                      SelectedItem="{Binding SelectedCriterion}"/>
+
+            <!-- Accuracy threshold ε: T is rounded to multiples of ε before the levels are built -->
+            <TextBlock Grid.Row="6" Grid.Column="0"
+                       Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="Accuracy"/><LineBreak/><Run Text="ε"/>
+            </TextBlock>
+            <TextBox Grid.Row="6" Grid.Column="1"
+                     AutomationProperties.Name="Accuracy epsilon"
+                     Text="{Binding AccuracyText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource ParamValueEditable}"
+                     ToolTip="Round T to multiples of ε before building α-levels (e.g. 0.0001). Empty = full precision."/>
+
+            <TextBlock Grid.Row="8" Grid.Column="0"
+                       Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center"
+                       Text="Max results"/>
+            <TextBox Grid.Row="8" Grid.Column="1"
+                     AutomationProperties.Name="Max results"
+                     Text="{Binding MaxResults, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource ParamValueEditable}"/>
+        </Grid>
+
+        <!-- ── Conditional parameters ──────────────────────────────── -->
+
+        <!-- Minkowski p -->
+        <ContentControl Content="{Binding DistanceParameters}"
+                        Visibility="{Binding DistanceParameters.HasParameters, Converter={StaticResource BoolToVisibility}}">
+            <ContentControl.Resources>
+                <DataTemplate DataType="{x:Type vm:MinkowskiParameterViewModel}">
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="74"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                                   Text="Minkowski p" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding PText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="p &gt; 0 · p=1 Manhattan · p=2 Euclidean"/>
+                    </Grid>
+                </DataTemplate>
+            </ContentControl.Resources>
+        </ContentControl>
+
+        <!-- Clusters c (D-AFC only) -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding ShowClusterCount, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       Text="Clusters c" TextWrapping="Wrap" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1"
+                     AutomationProperties.Name="Clusters c"
+                     Text="{Binding ClusterCountText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource ParamValueEditable}"
+                     ToolTip="Number of clusters c (integer ≥ 2), required by D-AFC."/>
+        </Grid>
+
+        <!-- Intersections w (D-PAFC: c is searched upwards until an allotment with ≤ w shared objects exists) -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding ShowIntersections, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="Intersec-"/><LineBreak/><Run Text="tions w"/>
+            </TextBlock>
+            <TextBox Grid.Column="1"
+                     AutomationProperties.Name="Intersections w"
+                     Text="{Binding IntersectionsText, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource ParamValueEditable}"
+                     ToolTip="Largest admissible number of objects in intersection areas. 0 = fully separated clusters (principal allotment)."/>
+        </Grid>
+
+        <!-- α selector (D-AFC only): all distinct levels of T, or the single level α* -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding ShowAlphaSelector, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="α"/><LineBreak/><Run Text="levels"/>
+            </TextBlock>
+            <ComboBox Grid.Column="1"
+                      AutomationProperties.Name="Alpha levels"
+                      ItemsSource="{Binding AlphaSelectors}"
+                      SelectedItem="{Binding SelectedAlphaSelector}"
+                      ToolTip="All levels: search every distinct α of T. Manual: search only the level α* below."/>
+        </Grid>
+
+        <!-- TAGA operator -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding ShowTagaOperator, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="TAGA"/><LineBreak/><Run Text="operator"/>
+            </TextBlock>
+            <ComboBox Grid.Column="1"
+                      ItemsSource="{Binding TagaOperators}"
+                      SelectedItem="{Binding SelectedTagaOperator}"/>
+        </Grid>
+
+        <!-- Alpha threshold α* -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding ShowUserAlpha, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="α*"/><LineBreak/><Run Text="threshold"/>
+            </TextBlock>
+            <TextBox Grid.Column="1"
+                     AutomationProperties.Name="Alpha threshold"
+                     Style="{StaticResource ParamValueEditable}"
+                     Text="{Binding UserAlphaText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="α* ∈ (0,1): the nearest level of T not above α* is searched."/>
+        </Grid>
+
+        <!-- Parameter problems are shown here, next to the fields, before Run is pressed -->
+        <TextBlock Margin="0,10,0,0" FontSize="11.5" TextWrapping="Wrap"
+                   Foreground="{StaticResource CoralBrush}"
+                   AutomationProperties.Name="Parameter error"
+                   Text="{Binding ValidationError}"
+                   Visibility="{Binding ValidationError, Converter={StaticResource StringToVisibility}}"/>
+
+    </StackPanel>
+</UserControl>

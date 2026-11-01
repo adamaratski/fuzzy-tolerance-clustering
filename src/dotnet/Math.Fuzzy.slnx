@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/apps/">
+    <Project Path="apps/Math.Fuzzy.Cli/Math.Fuzzy.Cli.csproj" />
+    <Project Path="apps/Math.Fuzzy.Desktop/Math.Fuzzy.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/Math.Fuzzy.Benchmarks/Math.Fuzzy.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Math.Fuzzy.Clustering/Math.Fuzzy.Clustering.csproj" />
+    <Project Path="src/Math.Fuzzy.Core/Math.Fuzzy.Core.csproj" />
+    <Project Path="src/Math.Fuzzy.Inference/Math.Fuzzy.Inference.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Math.Fuzzy.Clustering.Tests/Math.Fuzzy.Clustering.Tests.csproj" />
+    <Project Path="tests/Math.Fuzzy.Core.Tests/Math.Fuzzy.Core.Tests.csproj" />
+    <Project Path="tests/Math.Fuzzy.Inference.Tests/Math.Fuzzy.Inference.Tests.csproj" />
+  </Folder>
+</Solution>

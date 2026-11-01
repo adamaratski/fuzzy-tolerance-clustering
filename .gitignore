@@ -1,0 +1,28 @@
+# .NET build output
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+# publish output and release archives
+publish/
+artifacts/
+*.zip
+
+# MATLAB
+*.asv
+*.mex*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Optimize>true</Optimize>
+    <AssemblyName>mfuzzy-bench</AssemblyName>
+    <RootNamespace>MathFuzzy.Benchmarks</RootNamespace>
+    <Description>Ablation benchmarks for the computational chapter of the book: each acceleration technique is switched off in turn on the same data.</Description>
+    <IsPackable>false</IsPackable>
+    <!-- every variant runs fully optimised code from the first call: no tier-0 code in the timings -->
+    <TieredCompilation>false</TieredCompilation>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Math.Fuzzy.Core\Math.Fuzzy.Core.csproj" />
+    <ProjectReference Include="..\..\src\Math.Fuzzy.Clustering\Math.Fuzzy.Clustering.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,52 @@
+<UserControl x:Class="MathFuzzy.Desktop.Views.Data.DataPanelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel>
+
+        <!-- Objects n -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource InfoLabel}" Text="Objects n"/>
+            <TextBlock Grid.Column="1" Style="{StaticResource InfoValue}"
+                       Text="{Binding Rows, Converter={StaticResource IntZeroToString}}"/>
+        </Grid>
+
+        <!-- Features m -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource InfoLabel}" Text="Features m"/>
+            <TextBlock Grid.Column="1" Style="{StaticResource InfoValue}"
+                       Text="{Binding Cols, Converter={StaticResource IntZeroToString}}"/>
+        </Grid>
+
+        <!-- Labels (shown only when present) -->
+        <Grid Visibility="{Binding HasLabels, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource InfoLabel}" Text="Labels"/>
+            <TextBlock Grid.Column="1" Style="{StaticResource InfoValueAccent}"
+                       Text="{Binding ClassCount, StringFormat='{}{0} classes'}"/>
+        </Grid>
+
+        <!-- T levels (shown when tolerance matrix is built) -->
+        <Grid Visibility="{Binding TLevels, Converter={StaticResource IntZeroToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource InfoLabel}" Text="{Binding TLevelsLabel}"/>
+            <TextBlock Grid.Column="1" Style="{StaticResource InfoValue}"
+                       Text="{Binding TLevels, StringFormat='{}{0:N0}'}"/>
+        </Grid>
+
+    </StackPanel>
+</UserControl>

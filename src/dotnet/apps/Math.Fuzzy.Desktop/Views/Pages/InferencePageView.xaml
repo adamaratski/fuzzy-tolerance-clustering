@@ -1,0 +1,606 @@
+<UserControl x:Class="MathFuzzy.Desktop.Views.Pages.InferencePageView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:oxy="http://oxyplot.org/wpf"
+             xmlns:ctrl="clr-namespace:MathFuzzy.Desktop.Controls">
+
+    <!-- DataContext = InferencePageViewModel -->
+    <UserControl.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background"      Value="{StaticResource Surface0Brush}"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius"    Value="6"/>
+            <Setter Property="Padding"         Value="12,10"/>
+        </Style>
+        <Style x:Key="SmallNote" TargetType="TextBlock">
+            <Setter Property="FontSize"     Value="11"/>
+            <Setter Property="Foreground"   Value="{StaticResource Subtext0Brush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="CompactCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Height"    Value="24"/>
+            <Setter Property="Padding"   Value="6,2,20,2"/>
+            <Setter Property="FontSize"  Value="12"/>
+        </Style>
+        <Style x:Key="ToolbarButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding"  Value="10,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin"   Value="6,0,0,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="16,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Toolbar: what to generate from ─────────────────────────── -->
+        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="12,8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource ToolbarButton}" Command="{Binding ImportJsonCommand}"
+                            AutomationProperties.Name="Import rule base" ToolTip="Load a rule base saved as JSON">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="FolderOpen24" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Import" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolbarButton}" Command="{Binding ExportJsonCommand}"
+                            IsEnabled="{Binding HasSystem}"
+                            AutomationProperties.Name="Export rule base to JSON" ToolTip="Save the rule base as JSON">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowExportLtr24" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="JSON" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolbarButton}" Command="{Binding ExportFisCommand}"
+                            IsEnabled="{Binding HasSystem}"
+                            AutomationProperties.Name="Export rule base to MATLAB FIS"
+                            ToolTip="Save as a MATLAB Fuzzy Logic Toolbox .fis file (readfis)">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowExportLtr24" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text=".fis" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <WrapPanel VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource ParamLabel}" Text="Solution" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <ComboBox Style="{StaticResource CompactCombo}" Width="168"
+                              AutomationProperties.Name="Clustering solution"
+                              ItemsSource="{Binding Solutions}" SelectedIndex="{Binding SelectedSolution}"/>
+                    <TextBlock Style="{StaticResource ParamLabel}" Text="Rule base" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                    <ComboBox Style="{StaticResource CompactCombo}" Width="188"
+                              AutomationProperties.Name="Rule base kind"
+                              ToolTip="Allotment: Mamdani MIMO system of the monograph (sec. 4.5), one output per cluster. Classifier: class label consequents. Mamdani / Sugeno: predict a target column."
+                              ItemsSource="{Binding RuleBaseKinds}" SelectedIndex="{Binding SelectedKind}"/>
+                    <TextBlock Style="{StaticResource ParamLabel}" Text="MF shape" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                    <ComboBox Style="{StaticResource CompactCombo}" Width="166"
+                              AutomationProperties.Name="Membership function shape"
+                              ItemsSource="{Binding Shapes}" SelectedIndex="{Binding SelectedShape}"/>
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsRegressionKind, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Style="{StaticResource ParamLabel}" Text="Target" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                        <ComboBox Style="{StaticResource CompactCombo}" Width="116"
+                                  AutomationProperties.Name="Target column"
+                                  ItemsSource="{Binding Features}" SelectedIndex="{Binding TargetIndex}"/>
+                    </StackPanel>
+                    <Button Style="{StaticResource RunSelectedButton}" Padding="10,4" FontSize="12" Margin="10,0,0,0"
+                            Command="{Binding GenerateCommand}"
+                            AutomationProperties.Name="Regenerate rules"
+                            ToolTip="Rebuild the rule base from the solution (discards manual edits)">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowSync24" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Regenerate" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ── Summary / status ─────────────────────────────────────────── -->
+        <StackPanel Grid.Row="1" Margin="2,6,0,6">
+            <TextBlock Style="{StaticResource LabelText}" Text="{Binding Summary}" TextWrapping="Wrap"
+                       Visibility="{Binding HasSystem, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock FontSize="12" Text="{Binding StatusText}" TextWrapping="Wrap"
+                       AutomationProperties.Name="Inference status"
+                       Visibility="{Binding StatusText, Converter={StaticResource StringToVisibility}}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding StatusIsError}" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource CoralBrush}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- ── Empty state ──────────────────────────────────────────────── -->
+        <Border Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Left" MaxWidth="640"
+                Background="{StaticResource InfoFillBrush}" BorderBrush="{StaticResource InfoEdgeBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="12,9"
+                Visibility="{Binding HasSystem, Converter={StaticResource InverseBoolToVisibility}}">
+            <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon Symbol="Info24" FontSize="16" Margin="0,0,8,0"
+                               Foreground="{StaticResource InfoTextBrush}" VerticalAlignment="Center"/>
+                <TextBlock Style="{StaticResource LabelText}" TextWrapping="Wrap" MaxWidth="580"
+                           Foreground="{StaticResource InfoTextBrush}" Text="{Binding EmptyMessage}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Workbench ────────────────────────────────────────────────── -->
+        <Grid Grid.Row="2" Visibility="{Binding HasSystem, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="420"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="384"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: rules over the MF editor -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" MinHeight="160"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="310"/>
+                </Grid.RowDefinitions>
+
+                <!-- RULES -->
+                <Border Grid.Row="0" Style="{StaticResource Card}" Padding="0">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="12,8,12,6">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource ToolbarButton}"
+                                    Command="{Binding RefitConsequentsCommand}"
+                                    AutomationProperties.Name="Refit consequents"
+                                    ToolTip="Refit Sugeno consequents by local weighted least squares (after editing terms)"
+                                    Visibility="{Binding IsSugeno, Converter={StaticResource BoolToVisibility}}"
+                                    Content="Refit consequents"/>
+                            <TextBlock Style="{StaticResource PanelSection}" Text="RULES" Margin="0" VerticalAlignment="Center"/>
+                            <TextBlock Style="{StaticResource SmallNote}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                       Text="one rule per fuzzy cluster · switch rules off, change terms and weights · bars show live firing strength"/>
+                        </DockPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding Rules}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="12,6,22,6"
+                                                AutomationProperties.Name="{Binding AutomationName}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="64"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="112"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+
+                                                <CheckBox Grid.Column="0" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                          IsChecked="{Binding IsEnabled}"
+                                                          AutomationProperties.Name="{Binding AutomationName, StringFormat={}{0} enabled}"
+                                                          ToolTip="Rule on / off"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Ellipse Width="8" Height="8" Fill="{Binding Accent}" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="{Binding Header}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource TextBrush}"/>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Left" Text="IF" Width="34" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Subtext0Brush}" VerticalAlignment="Center"/>
+                                                        <ItemsControl ItemsSource="{Binding Antecedent}" Focusable="False">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <StackPanel Orientation="Horizontal" Margin="0,2,10,2">
+                                                                        <TextBlock Text="{Binding Variable}" FontSize="12" Margin="0,0,4,0"
+                                                                                   Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                                                                        <ComboBox Style="{StaticResource CompactCombo}" MinWidth="58"
+                                                                                  ItemsSource="{Binding Options}"
+                                                                                  SelectedIndex="{Binding SelectedIndex}"
+                                                                                  AutomationProperties.Name="{Binding AutomationName}"/>
+                                                                    </StackPanel>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </DockPanel>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Left" Text="THEN" Width="34" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Subtext0Brush}" VerticalAlignment="Center"/>
+                                                        <WrapPanel>
+                                                            <!-- Mamdani: a term per output -->
+                                                            <ItemsControl ItemsSource="{Binding Consequent}" Focusable="False"
+                                                                          Visibility="{Binding IsMamdani, Converter={StaticResource BoolToVisibility}}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <StackPanel Orientation="Horizontal" Margin="0,2,10,2">
+                                                                            <TextBlock Text="{Binding Variable}" FontSize="12" Margin="0,0,4,0"
+                                                                                       Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                                                                            <ComboBox Style="{StaticResource CompactCombo}" MinWidth="58"
+                                                                                      ItemsSource="{Binding Options}"
+                                                                                      SelectedIndex="{Binding SelectedIndex}"
+                                                                                      AutomationProperties.Name="{Binding AutomationName}"/>
+                                                                        </StackPanel>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                            <!-- Classifier: the class -->
+                                                            <StackPanel Orientation="Horizontal" Margin="0,2,10,2"
+                                                                        Visibility="{Binding IsClassifier, Converter={StaticResource BoolToVisibility}}">
+                                                                <TextBlock Text="class" FontSize="12" Margin="0,0,4,0"
+                                                                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                                                                <ComboBox Style="{StaticResource CompactCombo}" MinWidth="96"
+                                                                          ItemsSource="{Binding ClassOptions}"
+                                                                          SelectedIndex="{Binding ClassIndex}"
+                                                                          AutomationProperties.Name="{Binding AutomationName, StringFormat={}{0} class}"/>
+                                                            </StackPanel>
+                                                            <!-- Sugeno: p0 p1 … pm -->
+                                                            <StackPanel Orientation="Horizontal" Margin="0,2,10,2"
+                                                                        Visibility="{Binding IsSugeno, Converter={StaticResource BoolToVisibility}}">
+                                                                <TextBlock Text="p₀ p₁ … =" FontSize="12" Margin="0,0,4,0"
+                                                                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                                                                <TextBox Style="{StaticResource ParamValueEditable}" MinWidth="150"
+                                                                         HorizontalContentAlignment="Left" Padding="5,2"
+                                                                         Text="{Binding CoefficientsText}"
+                                                                         AutomationProperties.Name="{Binding AutomationName, StringFormat={}{0} coefficients}"
+                                                                         ToolTip="Consequent coefficients p₀ p₁ … pₘ, space-separated"/>
+                                                                <TextBlock Text="{Binding RuleOutputText}" FontSize="11" Margin="8,0,0,0"
+                                                                           Foreground="{StaticResource Subtext0Brush}" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </WrapPanel>
+                                                    </DockPanel>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,8,0">
+                                                    <TextBlock Style="{StaticResource ParamLabel}" Text="w" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                    <TextBox Style="{StaticResource ParamValueEditable}" Width="46" Padding="4,2"
+                                                             Text="{Binding WeightText}"
+                                                             AutomationProperties.Name="{Binding AutomationName, StringFormat={}{0} weight}"
+                                                             ToolTip="Rule weight in [0, 1]"/>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                                    <ProgressBar Style="{StaticResource ThinProgressBar}" Maximum="1" Value="{Binding Firing}"
+                                                                 AutomationProperties.Name="{Binding AutomationName, StringFormat={}{0} firing strength}"/>
+                                                    <TextBlock Text="{Binding FiringText}" FontSize="11" HorizontalAlignment="Right"
+                                                               Foreground="{StaticResource Subtext0Brush}"/>
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,3,0,0"
+                                                           Style="{StaticResource MonoText}" FontSize="10.5" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Subtext0Brush}" Text="{Binding Text}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+
+                <!-- MEMBERSHIP FUNCTIONS -->
+                <Border Grid.Row="2" Style="{StaticResource Card}">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource PanelSection}" Text="MEMBERSHIP FUNCTIONS" Margin="0" VerticalAlignment="Center"/>
+                            <ComboBox Style="{StaticResource CompactCombo}" Width="170" Margin="10,0,0,0"
+                                      AutomationProperties.Name="Variable"
+                                      ItemsSource="{Binding Variables}" SelectedIndex="{Binding SelectedVariable}"/>
+                            <TextBlock Style="{StaticResource SmallNote}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                       Text="drag the square handles or type parameters · dashed line = current input"/>
+                        </DockPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="214"/>
+                            </Grid.ColumnDefinitions>
+                            <oxy:PlotView Grid.Column="0" Model="{Binding MfPlot}" Background="Transparent"
+                                          AutomationProperties.Name="Membership function plot"
+                                          ctrl:PlotHandleDrag.Target="{Binding}"/>
+                            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="8,0,0,0">
+                                <ItemsControl ItemsSource="{Binding TermEditors}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,8">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                                    <Rectangle Width="10" Height="3" Fill="{Binding Accent}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource TextBrush}"/>
+                                                    <TextBlock Text="{Binding Shape}" FontSize="11" Margin="6,0,0,0"
+                                                               Foreground="{StaticResource Subtext0Brush}"/>
+                                                </StackPanel>
+                                                <ItemsControl ItemsSource="{Binding Parameters}" Focusable="False">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Orientation="Horizontal" Margin="0,0,6,3">
+                                                                <TextBlock Style="{StaticResource ParamLabel}" Text="{Binding Name}"
+                                                                           Width="12" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                                                <TextBox Style="{StaticResource ParamValueEditable}" Width="74" Padding="4,2"
+                                                                         Text="{Binding ValueText}"
+                                                                         AutomationProperties.Name="{Binding AutomationName}"/>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- Right: input, output, evaluation, operators -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,12,0">
+
+                    <!-- INPUT -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource PanelSection}" Text="INPUT VECTOR" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Style="{StaticResource ParamLabel}" Text="Object #" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <Button Style="{StaticResource ToolbarButton}" Margin="0" Padding="6,2" Content="◀"
+                                        Command="{Binding StepObjectCommand}" CommandParameter="-1"
+                                        AutomationProperties.Name="Previous object"/>
+                                <TextBox Style="{StaticResource ParamValueEditable}" Width="52" Padding="4,2" Margin="4,0"
+                                         Text="{Binding ObjectNumberText}"
+                                         AutomationProperties.Name="Object number"/>
+                                <Button Style="{StaticResource ToolbarButton}" Margin="0" Padding="6,2" Content="▶"
+                                        Command="{Binding StepObjectCommand}" CommandParameter="1"
+                                        AutomationProperties.Name="Next object"/>
+                                <Button Style="{StaticResource ToolbarButton}" Content="Load"
+                                        Command="{Binding LoadObjectCommand}"
+                                        AutomationProperties.Name="Load object into inputs"
+                                        ToolTip="Set the inputs to this object of the workset"/>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource SmallNote}" Text="{Binding ObjectInfo}" Margin="0,0,0,6"
+                                       Visibility="{Binding ObjectInfo, Converter={StaticResource StringToVisibility}}"/>
+                            <ItemsControl ItemsSource="{Binding Inputs}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="92"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="64"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Name}"/>
+                                            <Slider Grid.Column="1" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                    Minimum="{Binding Min}" Maximum="{Binding Max}"
+                                                    SmallChange="{Binding SmallChange}" LargeChange="{Binding SmallChange}"
+                                                    Value="{Binding Value}"
+                                                    AutomationProperties.Name="{Binding AutomationName}"/>
+                                            <TextBox Grid.Column="2" Style="{StaticResource ParamValueEditable}" Padding="4,2"
+                                                     Text="{Binding ValueText}"
+                                                     AutomationProperties.Name="{Binding AutomationName, StringFormat={}{0} value}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- OUTPUT -->
+                    <Border Style="{StaticResource Card}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource PanelSection}" Text="OUTPUT" Margin="0,0,0,6"/>
+                            <TextBlock Text="{Binding DecisionText}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"
+                                       Foreground="{StaticResource InfoTextBrush}"
+                                       AutomationProperties.Name="Decision"
+                                       Visibility="{Binding DecisionText, Converter={StaticResource StringToVisibility}}"/>
+                            <ItemsControl ItemsSource="{Binding ClassScores}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="52"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsWinner}" Value="True">
+                                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <ProgressBar Grid.Column="1" Style="{StaticResource ThinProgressBar}" Maximum="1"
+                                                         Value="{Binding Score}" Foreground="{Binding Accent}" Margin="0,0,6,0"
+                                                         AutomationProperties.Name="{Binding Name, StringFormat={}{0} score}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding ScoreText}" FontSize="11" HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center" Foreground="{StaticResource Subtext0Brush}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding CrispText}" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{StaticResource InfoTextBrush}"
+                                       AutomationProperties.Name="Crisp output"
+                                       Visibility="{Binding CrispText, Converter={StaticResource StringToVisibility}}"/>
+                            <StackPanel Visibility="{Binding ShowOutputPlot, Converter={StaticResource BoolToVisibility}}" Margin="0,8,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource ParamLabel}" Text="Aggregated set of" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <ComboBox Style="{StaticResource CompactCombo}" Width="190"
+                                              AutomationProperties.Name="Output variable"
+                                              ItemsSource="{Binding OutputNames}" SelectedIndex="{Binding SelectedOutput}"/>
+                                </StackPanel>
+                                <oxy:PlotView Height="170" Margin="0,4,0,0" Model="{Binding OutputPlot}" Background="Transparent"
+                                              AutomationProperties.Name="Aggregated output set"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- EVALUATION -->
+                    <Border Style="{StaticResource Card}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource PanelSection}" Text="EVALUATION ON THE WORKSET" Margin="0,0,0,4"/>
+                            <TextBlock Style="{StaticResource SmallNote}" Text="{Binding EvaluationTitle}" Margin="0,0,0,6"/>
+
+                            <StackPanel Visibility="{Binding ShowConfusion, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource MetricBig}" Text="{Binding AccuracyText}"
+                                               AutomationProperties.Name="Accuracy"/>
+                                    <TextBlock Style="{StaticResource MetricSub}" Text="accuracy" Margin="8,0,0,6" VerticalAlignment="Bottom"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource SmallNote}" Text="{Binding CountsText}" Margin="0,2,0,8"/>
+                                <!-- confusion matrix: rows = true class, columns = predicted / tie / none -->
+                                <ItemsControl ItemsSource="{Binding ConfusionHeader}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" Width="52" FontSize="10.5" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding}" TextAlignment="Right"
+                                                       Foreground="{StaticResource Subtext0Brush}" Margin="0,0,2,3"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding ConfusionRows}" Focusable="False"
+                                              AutomationProperties.Name="Confusion matrix">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                                <TextBlock Text="{Binding Label}" Width="52" FontSize="11" TextAlignment="Right"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}"
+                                                           Foreground="{StaticResource TextBrush}" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                <ItemsControl ItemsSource="{Binding Cells}" Focusable="False">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Width="52" Margin="0,0,2,0" Padding="0,2,6,2" CornerRadius="3">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="Background" Value="{StaticResource Surface1Brush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsDiagonal}" Value="True">
+                                                                                <Setter Property="Background" Value="{StaticResource SuccessFillBrush}"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <TextBlock Text="{Binding Text}" FontSize="11.5" TextAlignment="Right">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsZero}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="{StaticResource OverlayBrush}"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding ShowRegression, Converter={StaticResource BoolToVisibility}}">
+                                <WrapPanel>
+                                    <Border Style="{StaticResource MetricCard}" Margin="0,0,8,0" MinWidth="110">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource MetricBig}" FontSize="22" Text="{Binding RmseText}"
+                                                       AutomationProperties.Name="RMSE"/>
+                                            <TextBlock Style="{StaticResource MetricSub}" Text="RMSE"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource MetricCard}" MinWidth="110">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource MetricBig}" FontSize="22" Text="{Binding MaeText}"
+                                                       AutomationProperties.Name="MAE"/>
+                                            <TextBlock Style="{StaticResource MetricSub}" Text="MAE"/>
+                                        </StackPanel>
+                                    </Border>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource SmallNote}" Text="{Binding CountsText}" Margin="0,6,0,0"/>
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource SmallNote}" Text="{Binding EvaluationNote}" Margin="0,8,0,0"
+                                       Visibility="{Binding EvaluationNote, Converter={StaticResource StringToVisibility}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- OPERATORS -->
+                    <Border Style="{StaticResource Card}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource PanelSection}" Text="INFERENCE OPERATORS" Margin="0,0,0,6"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="104"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Style="{StaticResource ParamLabel}" Text="AND (t-norm)" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" Style="{StaticResource CompactCombo}" Margin="0,2"
+                                          AutomationProperties.Name="AND t-norm"
+                                          ItemsSource="{Binding TNorms}" SelectedItem="{Binding AndMethod}"/>
+                                <TextBlock Grid.Row="1" Style="{StaticResource ParamLabel}" Text="OR (s-norm)" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" Style="{StaticResource CompactCombo}" Margin="0,2"
+                                          AutomationProperties.Name="OR s-norm"
+                                          ItemsSource="{Binding SNorms}" SelectedItem="{Binding OrMethod}"/>
+                                <TextBlock Grid.Row="2" Style="{StaticResource ParamLabel}" Text="Implication" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="2" Grid.Column="1" Style="{StaticResource CompactCombo}" Margin="0,2"
+                                          AutomationProperties.Name="Implication"
+                                          ItemsSource="{Binding Implications}" SelectedItem="{Binding ImplicationMethod}"/>
+                                <TextBlock Grid.Row="3" Style="{StaticResource ParamLabel}" Text="Aggregation" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="3" Grid.Column="1" Style="{StaticResource CompactCombo}" Margin="0,2"
+                                          AutomationProperties.Name="Aggregation"
+                                          ItemsSource="{Binding SNorms}" SelectedItem="{Binding AggregationMethod}"/>
+                                <TextBlock Grid.Row="4" Style="{StaticResource ParamLabel}" Text="Defuzzification" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="4" Grid.Column="1" Style="{StaticResource CompactCombo}" Margin="0,2"
+                                          AutomationProperties.Name="Defuzzification"
+                                          ItemsSource="{Binding Defuzzifications}" SelectedItem="{Binding DefuzzificationMethod}"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource SmallNote}" Margin="0,6,0,0"
+                                       Text="Monograph sec. 4.5: AND = min, implication = min, aggregation = max, centroid. Implication and defuzzification act on Mamdani systems; aggregation also combines classifier votes per class."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

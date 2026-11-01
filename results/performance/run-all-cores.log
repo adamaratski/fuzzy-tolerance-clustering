@@ -1,0 +1,45 @@
+Processor: AMD Ryzen 9 7900X 12-Core Processor, logical cores used: 24, .NET 10.0.13, Vector<double>: 4 lanes, AVX2: True, AVX-512F: True
+closure    Floyd-Warshall, scalar, 1 thread       iris       n=150   cores=24  median=        2.19 ms
+closure    Floyd-Warshall, SIMD 128-bit, 1 thread iris       n=150   cores=24  median=        1.42 ms
+closure    Floyd-Warshall, SIMD 256-bit, 1 thread iris       n=150   cores=24  median=        0.82 ms
+closure    Floyd-Warshall, SIMD 512-bit, 1 thread iris       n=150   cores=24  median=        0.54 ms
+closure    Floyd-Warshall, scalar, parallel       iris       n=150   cores=24  median=        1.72 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) iris       n=150   cores=24  median=        1.38 ms
+closure    Spanning tree, 1 thread                iris       n=150   cores=24  median=        0.19 ms
+closure    Spanning tree, parallel (library)      iris       n=150   cores=24  median=        0.11 ms
+closure    Floyd-Warshall, scalar, 1 thread       blobs500   n=500   cores=24  median=       74.13 ms
+closure    Floyd-Warshall, SIMD 128-bit, 1 thread blobs500   n=500   cores=24  median=       52.27 ms
+closure    Floyd-Warshall, SIMD 256-bit, 1 thread blobs500   n=500   cores=24  median=       28.57 ms
+closure    Floyd-Warshall, SIMD 512-bit, 1 thread blobs500   n=500   cores=24  median=       17.61 ms
+closure    Floyd-Warshall, scalar, parallel       blobs500   n=500   cores=24  median=       17.03 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs500   n=500   cores=24  median=       17.43 ms
+closure    Spanning tree, 1 thread                blobs500   n=500   cores=24  median=        2.75 ms
+closure    Spanning tree, parallel (library)      blobs500   n=500   cores=24  median=        0.89 ms
+closure    Floyd-Warshall, scalar, 1 thread       blobs1000  n=1000  cores=24  median=      582.07 ms
+closure    Floyd-Warshall, SIMD 128-bit, 1 thread blobs1000  n=1000  cores=24  median=      410.06 ms
+closure    Floyd-Warshall, SIMD 256-bit, 1 thread blobs1000  n=1000  cores=24  median=      225.55 ms
+closure    Floyd-Warshall, SIMD 512-bit, 1 thread blobs1000  n=1000  cores=24  median=      130.62 ms
+closure    Floyd-Warshall, scalar, parallel       blobs1000  n=1000  cores=24  median=      101.23 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs1000  n=1000  cores=24  median=      159.69 ms
+closure    Spanning tree, 1 thread                blobs1000  n=1000  cores=24  median=       13.23 ms
+closure    Spanning tree, parallel (library)      blobs1000  n=1000  cores=24  median=        3.78 ms
+closure    Floyd-Warshall, scalar, 1 thread       blobs2000  n=2000  cores=24  median=     5187.64 ms
+closure    Floyd-Warshall, SIMD 128-bit, 1 thread blobs2000  n=2000  cores=24  median=     4125.44 ms
+closure    Floyd-Warshall, SIMD 256-bit, 1 thread blobs2000  n=2000  cores=24  median=     3004.16 ms
+closure    Floyd-Warshall, SIMD 512-bit, 1 thread blobs2000  n=2000  cores=24  median=     2462.06 ms
+closure    Floyd-Warshall, scalar, parallel       blobs2000  n=2000  cores=24  median=      553.80 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs2000  n=2000  cores=24  median=      893.88 ms
+closure    Spanning tree, 1 thread                blobs2000  n=2000  cores=24  median=       48.11 ms
+closure    Spanning tree, parallel (library)      blobs2000  n=2000  cores=24  median=       12.98 ms
+search     Bit-set engine + pre-filter (library)  iris       n=150   cores=24  median=      717.61 ms  [8653 levels]
+search     Pre-filter + plain enumeration         iris       n=150   cores=1   median=   495442.82 ms  [4300 of 8653 levels searched, 2,370,590,000 combinations]
+  best allotment: library ?=0.73864 F1=0.367206 [0,60,141], enumeration ?=0.73864 F1=0.367206 [0,60,141]  identical
+search     Plain enumeration of all combinations  iris       n=150   cores=1   median=  1011317.57 ms  (extrapolated)  [116.9 ms per level on 24 evenly spaced levels ? 8653 levels]
+hafc       Best typical point per class (library) iris       n=150   cores=24  median=       12.08 ms  [93 levels]
+hafc       Combination search per level (budget 5ú10?) iris       n=150   cores=24  median=    59309.19 ms  [94 levels]
+stages     Tolerance matrix T                     iris       n=150   cores=24  median=        0.06 ms
+stages     Transitive closure (library)           iris       n=150   cores=24  median=        0.12 ms
+stages     Distinct ?-levels of T                 iris       n=150   cores=24  median=        1.01 ms  [8653 levels]
+stages     Tolerance matrix T                     blobs2000  n=2000  cores=24  median=        4.88 ms
+stages     Transitive closure (library)           blobs2000  n=2000  cores=24  median=       15.57 ms
+stages     Distinct ?-levels of T                 blobs2000  n=2000  cores=24  median=     1253.47 ms  [1999000 levels]

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Math.Fuzzy.Inference</AssemblyName>
+    <RootNamespace>MathFuzzy.Inference</RootNamespace>
+    <Description>Fuzzy inference systems (Mamdani MIMO, Takagi-Sugeno, classifier) and rule-base generation from possibilistic clustering results.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Math.Fuzzy.Core\Math.Fuzzy.Core.csproj" />
+    <ProjectReference Include="..\Math.Fuzzy.Clustering\Math.Fuzzy.Clustering.csproj" />
+  </ItemGroup>
+
+</Project>

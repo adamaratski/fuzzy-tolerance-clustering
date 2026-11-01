@@ -1,0 +1,339 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:MathFuzzy.Desktop.Converters">
+
+    <!-- ══════════════════════════════════════════════════════════════
+         CONVERTERS
+    ══════════════════════════════════════════════════════════════ -->
+
+    <conv:WorksetStatusToBrushConverter             x:Key="StatusToBrush"/>
+    <conv:WorksetStatusToForegroundConverter        x:Key="StatusToForeground"/>
+    <conv:WorksetStatusToSpinnerVisibilityConverter x:Key="StatusToSpinnerVisibility"/>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         STATUS BADGE  (done / running… / idle / error)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="StatusBadge" TargetType="Border">
+        <Setter Property="CornerRadius"        Value="10"/>
+        <Setter Property="Padding"             Value="8,2"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="MinWidth"            Value="44"/>
+    </Style>
+
+    <Style x:Key="StatusBadgeText" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="11"/>
+        <Setter Property="FontWeight"          Value="Medium"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PILL TOGGLE  (small mutually-exclusive chips, e.g. "T" / "T̃")
+         Usage: <RadioButton Style="{StaticResource PillToggle}" Content="T"/>
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="PillToggle" TargetType="RadioButton">
+        <Setter Property="Foreground"       Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="FontFamily"       Value="Segoe UI"/>
+        <Setter Property="FontSize"         Value="11"/>
+        <Setter Property="Cursor"           Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd"
+                            Background="Transparent"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="9,3">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background"  Value="{StaticResource InfoFillBrush}"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource InfoEdgeBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource InfoTextBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Blue400Brush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         ALGORITHM CHIP  (info pill — "D-AFC-TC")
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="AlgorithmChip" TargetType="Border">
+        <Setter Property="Background"          Value="{StaticResource InfoFillBrush}"/>
+        <Setter Property="CornerRadius"        Value="4"/>
+        <Setter Property="Padding"             Value="8,3"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+    </Style>
+
+    <Style x:Key="AlgorithmChipText" TargetType="TextBlock">
+        <Setter Property="Foreground"          Value="{StaticResource InfoTextBrush}"/>
+        <Setter Property="FontFamily"          Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"            Value="11"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         WORKSET LISTBOX  (card-styled items; shared by Dashboard and Data pages)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="WorksetListBox" TargetType="ListBox">
+        <Setter Property="Background"                                 Value="Transparent"/>
+        <Setter Property="BorderThickness"                            Value="0"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility"   Value="Auto"/>
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding"                    Value="0"/>
+                    <Setter Property="Margin"                     Value="0"/>
+                    <Setter Property="FocusVisualStyle"           Value="{x:Null}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="Card"
+                                        Background="{StaticResource Surface0Brush}"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Margin="0,0,0,4"
+                                        Padding="12,9"
+                                        Cursor="Hand">
+                                    <ContentPresenter/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        <Setter TargetName="Card" Property="Background"  Value="{StaticResource Surface1Brush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Workset name -->
+    <Style x:Key="WorksetName" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="13"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="Foreground"          Value="{StaticResource TextBrush}"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+    </Style>
+
+    <!-- Workset meta line (e.g. "150 × 4 · TwoWay · Euclidean") -->
+    <Style x:Key="WorksetMeta" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="11"/>
+        <Setter Property="Foreground"          Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="Margin"              Value="0,2,0,0"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         INFO ROW  (label + value pairs in sidebars and infobars)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="InfoLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="12"/>
+        <Setter Property="Foreground"          Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+        <Setter Property="Margin"              Value="0,4,0,0"/>
+    </Style>
+
+    <Style x:Key="InfoValue" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="12"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="Foreground"          Value="{StaticResource TextBrush}"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="Margin"              Value="0,4,0,0"/>
+    </Style>
+
+    <!-- Accent-colored info value (e.g. "3 classes" in green) -->
+    <Style x:Key="InfoValueAccent" TargetType="TextBlock" BasedOn="{StaticResource InfoValue}">
+        <Setter Property="Foreground"          Value="{StaticResource SuccessBrush}"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         CLUSTER CENTRE CHIP  ("C₁ obj 95 · n=50")
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="ClusterCentreChip" TargetType="Border">
+        <Setter Property="Background"          Value="{StaticResource Surface1Brush}"/>
+        <Setter Property="BorderBrush"         Value="{StaticResource BorderBrush}"/>
+        <Setter Property="BorderThickness"     Value="1"/>
+        <Setter Property="CornerRadius"        Value="12"/>
+        <Setter Property="Padding"             Value="10,4"/>
+        <Setter Property="Margin"              Value="0,0,4,0"/>
+    </Style>
+
+    <Style x:Key="ClusterCentreText" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="11"/>
+        <Setter Property="Foreground"          Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         METRIC CARD  (clusters c / purity / ARI summary tiles)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="MetricCard" TargetType="Border">
+        <Setter Property="Background"          Value="{StaticResource Surface0Brush}"/>
+        <Setter Property="BorderBrush"         Value="{StaticResource BorderBrush}"/>
+        <Setter Property="BorderThickness"     Value="1"/>
+        <Setter Property="CornerRadius"        Value="6"/>
+        <Setter Property="Padding"             Value="12,12"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+
+    <!-- Large numeric value inside a MetricCard -->
+    <Style x:Key="MetricBig" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="28"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="Foreground"          Value="{StaticResource TextBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="LineHeight"          Value="32"/>
+    </Style>
+
+    <!-- Sub-label under the big number -->
+    <Style x:Key="MetricSub" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="11"/>
+        <Setter Property="Foreground"          Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="Margin"              Value="0,2,0,0"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PROGRESS SECTION  (right sidebar PROGRESS panel)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="ProgressPhaseText" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="11"/>
+        <Setter Property="Foreground"          Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="Margin"              Value="0,0,0,5"/>
+        <Setter Property="TextTrimming"        Value="CharacterEllipsis"/>
+    </Style>
+
+    <!-- Compact progress bar used in the PROGRESS panel -->
+    <Style x:Key="ThinProgressBar" TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+        <Setter Property="Height"              Value="4"/>
+        <Setter Property="Background"          Value="{StaticResource Surface1Brush}"/>
+        <Setter Property="Foreground"          Value="{StaticResource AccentBrush}"/>
+        <Setter Property="BorderThickness"     Value="0"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE HEADER  (center panel title + section labels)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="PageTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="18"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="Foreground"          Value="{StaticResource TextBrush}"/>
+        <Setter Property="VerticalAlignment"   Value="Center"/>
+    </Style>
+
+    <!-- Section label inside a panel (e.g. "WORKSETS", "CLUSTER CENTRES") -->
+    <Style x:Key="PanelSection" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="10"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="Foreground"          Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="Margin"              Value="0,12,0,6"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         RUN SELECTED BUTTON  (info CTA in the page header)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="RunSelectedButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background"          Value="{StaticResource InfoFillBrush}"/>
+        <Setter Property="BorderBrush"         Value="{StaticResource InfoEdgeBrush}"/>
+        <Setter Property="Foreground"          Value="{StaticResource InfoTextBrush}"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="FontSize"            Value="13"/>
+        <Setter Property="Padding"             Value="14,7"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background"  Value="{StaticResource AccentBrush}"/>
+                <Setter Property="Foreground"  Value="{StaticResource CrustBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity"     Value="0.4"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         HEADER COMMAND  (secondary button next to Run selected)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="HeaderCommandButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="FontSize"            Value="13"/>
+        <Setter Property="Padding"             Value="12,7"/>
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    </Style>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SIDEBAR PARAM ROW  (label + editable value — right sidebar)
+    ══════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="ParamLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="Segoe UI"/>
+        <Setter Property="FontSize"            Value="11"/>
+        <Setter Property="Foreground"          Value="{StaticResource Subtext0Brush}"/>
+        <Setter Property="Margin"              Value="0,0,0,3"/>
+    </Style>
+
+    <!-- Numeric editable value (e.g. "Max results 200") right side -->
+    <Style x:Key="ParamValueEditable" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Background"          Value="{StaticResource Surface0Brush}"/>
+        <Setter Property="Foreground"          Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush"         Value="{StaticResource BorderBrush}"/>
+        <Setter Property="BorderThickness"     Value="1"/>
+        <Setter Property="Padding"             Value="6,4"/>
+        <Setter Property="FontSize"            Value="12"/>
+        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+    </Style>
+
+</ResourceDictionary>

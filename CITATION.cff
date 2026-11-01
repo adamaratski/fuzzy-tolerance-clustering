@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the book and the archived release used for your computations."
+title: "fuzzy-tolerance-clustering: reference implementations of possibilistic clustering based on fuzzy tolerance relations"
+authors:
+  - family-names: Damaratski
+    given-names: Aliaksandr
+license: MIT
+repository-code: "https://github.com/adamaratski/fuzzy-tolerance-clustering"
+keywords:
+  - fuzzy clustering
+  - possibilistic clustering
+  - fuzzy tolerance relation
+  - transitive closure
+  - D-AFC
+preferred-citation:
+  type: book
+  title: "Fuzzy Tolerance Clustering: Theory, Algorithms, and Implementations"
+  authors:
+    - family-names: Damaratski
+      given-names: Aliaksandr
+  year: 2026

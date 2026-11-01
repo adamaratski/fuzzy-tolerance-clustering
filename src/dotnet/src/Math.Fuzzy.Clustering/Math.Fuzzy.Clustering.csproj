@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Math.Fuzzy.Clustering</AssemblyName>
+    <RootNamespace>MathFuzzy.Clustering</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>Clustering algorithms: D-AFC, D-PAFC, D-AFC-PS, D-AFC-TC, D-PAFC-TC, D-AFC-TAGA, D-PAFC-TAGA, H-AFC-TC and dimension reduction variants.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Math.Fuzzy.Core\Math.Fuzzy.Core.csproj" />
+  </ItemGroup>
+
+</Project>

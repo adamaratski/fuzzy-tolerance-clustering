@@ -1,0 +1,53 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Cluster palette — 12 visually distinct Catppuccin-derived colors.
+        Use ClusterBrush1 … ClusterBrush12 in XAML.
+        Use ClusterColor1 … ClusterColor12 when you need a raw Color (e.g. OxyPlot).
+    -->
+
+    <Color x:Key="ClusterColor1">#89B4FA</Color>   <!-- blue      -->
+    <Color x:Key="ClusterColor2">#A6E3A1</Color>   <!-- green     -->
+    <Color x:Key="ClusterColor3">#F38BA8</Color>   <!-- red       -->
+    <Color x:Key="ClusterColor4">#FAB387</Color>   <!-- peach     -->
+    <Color x:Key="ClusterColor5">#CBA6F7</Color>   <!-- mauve     -->
+    <Color x:Key="ClusterColor6">#94E2D5</Color>   <!-- teal      -->
+    <Color x:Key="ClusterColor7">#F9E2AF</Color>   <!-- yellow    -->
+    <Color x:Key="ClusterColor8">#74C7EC</Color>   <!-- sapphire  -->
+    <Color x:Key="ClusterColor9">#F5C2E7</Color>   <!-- pink      -->
+    <Color x:Key="ClusterColor10">#EBA0AC</Color>  <!-- maroon    -->
+    <Color x:Key="ClusterColor11">#B4BEFE</Color>  <!-- lavender  -->
+    <Color x:Key="ClusterColor12">#F2CDCD</Color>  <!-- flamingo  -->
+
+    <SolidColorBrush x:Key="ClusterBrush1"  Color="{StaticResource ClusterColor1}"/>
+    <SolidColorBrush x:Key="ClusterBrush2"  Color="{StaticResource ClusterColor2}"/>
+    <SolidColorBrush x:Key="ClusterBrush3"  Color="{StaticResource ClusterColor3}"/>
+    <SolidColorBrush x:Key="ClusterBrush4"  Color="{StaticResource ClusterColor4}"/>
+    <SolidColorBrush x:Key="ClusterBrush5"  Color="{StaticResource ClusterColor5}"/>
+    <SolidColorBrush x:Key="ClusterBrush6"  Color="{StaticResource ClusterColor6}"/>
+    <SolidColorBrush x:Key="ClusterBrush7"  Color="{StaticResource ClusterColor7}"/>
+    <SolidColorBrush x:Key="ClusterBrush8"  Color="{StaticResource ClusterColor8}"/>
+    <SolidColorBrush x:Key="ClusterBrush9"  Color="{StaticResource ClusterColor9}"/>
+    <SolidColorBrush x:Key="ClusterBrush10" Color="{StaticResource ClusterColor10}"/>
+    <SolidColorBrush x:Key="ClusterBrush11" Color="{StaticResource ClusterColor11}"/>
+    <SolidColorBrush x:Key="ClusterBrush12" Color="{StaticResource ClusterColor12}"/>
+
+    <!--
+        Semi-transparent cluster backgrounds (alpha=0x20 ≈ 12.5%).
+        Used as row/card tints to color-code clusters without washing out text.
+    -->
+    <SolidColorBrush x:Key="ClusterTint1"  Color="#2089B4FA"/>
+    <SolidColorBrush x:Key="ClusterTint2"  Color="#20A6E3A1"/>
+    <SolidColorBrush x:Key="ClusterTint3"  Color="#20F38BA8"/>
+    <SolidColorBrush x:Key="ClusterTint4"  Color="#20FAB387"/>
+    <SolidColorBrush x:Key="ClusterTint5"  Color="#20CBA6F7"/>
+    <SolidColorBrush x:Key="ClusterTint6"  Color="#2094E2D5"/>
+    <SolidColorBrush x:Key="ClusterTint7"  Color="#20F9E2AF"/>
+    <SolidColorBrush x:Key="ClusterTint8"  Color="#2074C7EC"/>
+    <SolidColorBrush x:Key="ClusterTint9"  Color="#20F5C2E7"/>
+    <SolidColorBrush x:Key="ClusterTint10" Color="#20EBA0AC"/>
+    <SolidColorBrush x:Key="ClusterTint11" Color="#20B4BEFE"/>
+    <SolidColorBrush x:Key="ClusterTint12" Color="#20F2CDCD"/>
+
+</ResourceDictionary>
