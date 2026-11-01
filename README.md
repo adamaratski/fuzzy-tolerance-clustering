@@ -12,7 +12,8 @@ The book covers the mathematics, the algorithms and the computational techniques
 This README covers how to install and use each implementation.
 
 A ready-to-run build of the desktop workbench for Windows is attached to each
-[release](https://github.com/adamaratski/fuzzy-tolerance-clustering/releases).
+[release](https://github.com/adamaratski/fuzzy-tolerance-clustering/releases). The [user guide of the workbench](docs/user-guide/user-guide.pdf) (PDF, with
+screenshots) explains it screen by screen; its source is [`docs/user-guide`](docs/user-guide).
 
 | Component | Location | Status |
 |-----------|----------|--------|

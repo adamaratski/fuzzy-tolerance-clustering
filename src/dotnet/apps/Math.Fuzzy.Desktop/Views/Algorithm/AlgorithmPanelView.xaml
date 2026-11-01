@@ -16,9 +16,9 @@
                        VerticalAlignment="Center"/>
         </StackPanel>
 
-        <!-- Relational variant: D-AFC(c) with a given c, or D-PAFC searching the least c -->
+        <!-- Algorithm of the selected category (the navigation picks the category) -->
         <StackPanel Margin="0,0,0,12"
-                    Visibility="{Binding IsRelational, Converter={StaticResource BoolToVisibility}}">
+                    Visibility="{Binding ShowVariants, Converter={StaticResource BoolToVisibility}}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="74"/>
@@ -26,10 +26,40 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
                            Text="Variant" VerticalAlignment="Center"/>
+                <!-- one combo box per category; the shared ComboBox template needs the explicit ItemTemplate -->
                 <ComboBox Grid.Column="1"
-                          AutomationProperties.Name="Relational variant"
+                          AutomationProperties.Name="Algorithm variant"
                           ItemsSource="{Binding RelationalVariants}"
-                          SelectedItem="{Binding SelectedAlgorithm}"/>
+                          SelectedItem="{Binding SelectedVariant}"
+                          Visibility="{Binding IsRelational, Converter={StaticResource BoolToVisibility}}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <ComboBox Grid.Column="1"
+                          AutomationProperties.Name="Algorithm variant"
+                          ItemsSource="{Binding PrototypeVariants}"
+                          SelectedItem="{Binding SelectedVariant}"
+                          Visibility="{Binding IsPrototype, Converter={StaticResource BoolToVisibility}}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <ComboBox Grid.Column="1"
+                          AutomationProperties.Name="Algorithm variant"
+                          ItemsSource="{Binding ReductionVariants}"
+                          SelectedItem="{Binding SelectedVariant}"
+                          Visibility="{Binding IsReduction, Converter={StaticResource BoolToVisibility}}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </Grid>
             <TextBlock Margin="74,4,0,0" FontSize="11" TextWrapping="Wrap"
                        Foreground="{StaticResource Subtext0Brush}"

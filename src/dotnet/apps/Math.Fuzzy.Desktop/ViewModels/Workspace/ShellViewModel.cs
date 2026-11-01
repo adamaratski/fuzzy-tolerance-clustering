@@ -84,15 +84,19 @@ public sealed partial class ShellViewModel : ObservableObject
         // and land on the dashboard where the run happens.
         switch (tag)
         {
-            case "cat-relational":
-                if (!AlgorithmPanel.IsRelational) AlgorithmPanel.SelectedAlgorithm = "D-AFC";
-                CurrentPage = "dashboard";
-                break;
-            case "cat-prototype":    AlgorithmPanel.SelectedAlgorithm = "D-AFC-TC";  CurrentPage = "dashboard"; break;
-            case "cat-hierarchical": AlgorithmPanel.SelectedAlgorithm = "H-AFC-TC";  CurrentPage = "dashboard"; break;
-            case "cat-dr":           AlgorithmPanel.SelectedAlgorithm = "D-PAFC-DR"; CurrentPage = "dashboard"; break;
+            // a category keeps the variant chosen in it; a new category starts with its first algorithm
+            case "cat-relational":   SelectCategory("Relational", "D-AFC");          break;
+            case "cat-prototype":    SelectCategory("Prototype-based", "D-AFC-TC");  break;
+            case "cat-hierarchical": SelectCategory("Hierarchical", "H-AFC-TC");     break;
+            case "cat-dr":           SelectCategory("Dim. reduction", "D-PAFC-DR");  break;
             default:                 CurrentPage = tag; break;
         }
+    }
+
+    private void SelectCategory(string category, string defaultAlgorithm)
+    {
+        if (AlgorithmPanel.CategoryText != category) AlgorithmPanel.SelectedAlgorithm = defaultAlgorithm;
+        CurrentPage = "dashboard";
     }
 
     public ShellViewModel(
@@ -587,7 +591,8 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         if (Worksets.Count == 0) return;
         ActiveWorkset = Worksets[0];
-        StatusMessage = $"Sample datasets loaded from {dir}. Choose an algorithm and press Run.";
+        // the folder name only: the full path would expose the local directory layout in screenshots
+        StatusMessage = $"Sample datasets loaded from the {Path.GetFileName(dir)} folder. Choose an algorithm and press Run.";
     }
 
     private static string? FindDatasetsFolder()

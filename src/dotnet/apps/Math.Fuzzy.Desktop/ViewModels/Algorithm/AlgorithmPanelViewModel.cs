@@ -43,15 +43,51 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         _            => "Σᵢ[Σⱼ∈Cᵢ μ(cᵢ,xⱼ)/|Cᵢ|] − α·c"
     };
 
-    /// <summary>Relational variants: D-AFC(c) for a given c, D-PAFC searches the minimal c.</summary>
-    public IReadOnlyList<string> RelationalVariants { get; } = ["D-AFC", "D-PAFC"];
+    // One fixed list and one combo box per category: a combo box whose items never
+    // change keeps its selection when the category changes.
+    public IReadOnlyList<string> RelationalVariants   { get; } = ["D-AFC", "D-PAFC"];
+    public IReadOnlyList<string> PrototypeVariants    { get; } = ["D-AFC-TC", "D-AFC-TC(α)", "D-PAFC-TC", "D-AFC-TAGA", "D-PAFC-TAGA"];
+    public IReadOnlyList<string> HierarchicalVariants { get; } = ["H-AFC-TC"];
+    public IReadOnlyList<string> ReductionVariants    { get; } = ["D-PAFC-DR", "D-PAFC-TC-DR", "D-PAFC-TAGA-DR"];
 
-    public bool IsRelational => SelectedAlgorithm is "D-AFC" or "D-PAFC";
+    public bool IsRelational => CategoryText == "Relational";
+    public bool IsPrototype  => CategoryText == "Prototype-based";
+    public bool IsReduction  => CategoryText == "Dim. reduction";
+
+    /// <summary>The algorithms of the selected category; the chip shows the selected one.</summary>
+    public IReadOnlyList<string> Variants => CategoryText switch
+    {
+        "Relational"      => RelationalVariants,
+        "Prototype-based" => PrototypeVariants,
+        "Hierarchical"    => HierarchicalVariants,
+        _                 => ReductionVariants
+    };
+
+    public bool ShowVariants => Variants.Count > 1;
+
+    /// <summary>
+    /// What the variant combo boxes bind to. A hidden combo box of another category may
+    /// push null or an algorithm of its own list; only values of the current category count.
+    /// </summary>
+    public string SelectedVariant
+    {
+        get => SelectedAlgorithm;
+        set { if (value is not null && Variants.Contains(value)) SelectedAlgorithm = value; }
+    }
 
     public string VariantDescription => SelectedAlgorithm switch
     {
-        "D-PAFC" => "c is searched upwards: the first α-level and the least c with at most w shared objects.",
-        _        => "c is given; the best allotment among c clusters over the α-levels."
+        "D-AFC"          => "c is given; the best allotment among c clusters over the α-levels of T.",
+        "D-PAFC"         => "c is searched upwards: the first α-level and the least c with at most w shared objects.",
+        "D-AFC-TC"       => "Transitive closure T̃; the level is chosen by the leap heuristic, c by the classes of that level.",
+        "D-AFC-TC(α)"    => "As D-AFC-TC, but the leap is searched only at levels not below the threshold α*.",
+        "D-PAFC-TC"      => "Principal allotment: the first splitting level of T̃, i.e. the coarsest non-trivial partition.",
+        "D-AFC-TAGA"     => "Transitive approximation built with the chosen aggregation operator instead of the closure (experimental).",
+        "D-PAFC-TAGA"    => "Principal allotment on the transitive approximation (experimental).",
+        "H-AFC-TC"       => "Every level of T̃: the whole hierarchy of allotments, shown as a dendrogram.",
+        "D-PAFC-DR"      => "Attribute selection: D-PAFC on a tolerance relation between the attributes.",
+        "D-PAFC-TC-DR"   => "Attribute selection with the transitive closure of the attribute relation.",
+        _                => "Attribute selection with a transitive approximation of the attribute relation (experimental)."
     };
 
     public string ChipText     => SelectedAlgorithm;
@@ -96,7 +132,12 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowClusterCount));
         OnPropertyChanged(nameof(ShowAlphaSelector));
         OnPropertyChanged(nameof(ShowIntersections));
+        OnPropertyChanged(nameof(Variants));
+        OnPropertyChanged(nameof(ShowVariants));
         OnPropertyChanged(nameof(IsRelational));
+        OnPropertyChanged(nameof(IsPrototype));
+        OnPropertyChanged(nameof(IsReduction));
+        OnPropertyChanged(nameof(SelectedVariant));
         OnPropertyChanged(nameof(VariantDescription));
         OnPropertyChanged(nameof(ShowTagaOperator));
         OnPropertyChanged(nameof(ShowUserAlpha));
