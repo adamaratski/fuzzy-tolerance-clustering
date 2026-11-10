@@ -133,7 +133,7 @@ internal static class ClusterHandler
         {
             "json" => RenderJson(results, validation, levelValidation, diagnostics),
             "csv"  => RenderCsv(results),
-            _      => hierarchy ? RenderHierarchy(results) : RenderTable(results, validation)
+            _      => hierarchy ? RenderHierarchy(results) : RenderTable(results, validation, diagnostics)
         };
 
         if (request.Output is not null)
@@ -155,7 +155,8 @@ internal static class ClusterHandler
         }
     }
 
-    private static string RenderTable(IReadOnlyList<ClusterResult> results, ExternalValidationResult? ext)
+    private static string RenderTable(
+        IReadOnlyList<ClusterResult> results, ExternalValidationResult? ext, SearchDiagnostics? diagnostics = null)
     {
         var sb = new StringBuilder();
         bool hasTb = results.Any(r => r.TiebreakerScore.HasValue);
@@ -195,6 +196,16 @@ internal static class ClusterHandler
         {
             string majority = ext is not null ? $"  [{ext.ClusterMajority[i]}]" : "";
             sb.AppendLine($"  Cluster {i + 1} (center={best.Centers[i]}){majority}: [{string.Join(",", best.MemberSets[i])}]");
+        }
+
+        if (diagnostics?.AdmissiblePairs.Where(pair => pair.OnFrontier).ToList() is { Count: > 0 } frontier)
+        {
+            // order-free definition: the loosest admissible pairs; either scan order stops at one of them
+            sb.AppendLine();
+            sb.AppendLine($"Admissible pairs of thresholds: {diagnostics.AdmissiblePairs.Count}. The loosest of them (α, β) → c:");
+            foreach (var pair in frontier.OrderBy(pair => pair.Alpha))
+                sb.AppendLine($"  ({pair.Alpha:F4}, {pair.Beta:F4}) → {pair.ClusterCount}");
+            sb.AppendLine("The thresholds of an allotment are its least membership and its largest non-membership degree.");
         }
 
         if (hasBeta)
@@ -301,6 +312,15 @@ internal static class ClusterHandler
                 budgetExhausted = diagnostics.BudgetExhausted
             }
         };
+        if (diagnostics.AdmissiblePairs.Count > 0)
+        {
+            dto["thresholds"] = new
+            {
+                admissiblePairs = diagnostics.AdmissiblePairs.Count,
+                frontier = diagnostics.AdmissiblePairs.Where(pair => pair.OnFrontier).OrderBy(pair => pair.Alpha)
+                    .Select(pair => new { alpha = pair.Alpha, beta = pair.Beta, clusterCount = pair.ClusterCount })
+            };
+        }
         if (ext is not null)
         {
             dto["validation"] = ValidationDto(ext);

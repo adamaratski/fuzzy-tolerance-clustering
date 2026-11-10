@@ -299,6 +299,171 @@ public class IntuitionisticTests
         Assert.Throws<ArgumentException>(() => Relation([[0.8, 0.3]]));
     }
 
+    // ---- the order-free definition: all admissible pairs, least number of clusters, quality Q ----
+
+    private static (IReadOnlyList<ClusterResult> Found, SearchDiagnostics Diagnostics) OrderFree(IntuitionisticToleranceMatrix relation)
+    {
+        var diagnostics = new SearchDiagnostics();
+        var found = new DPaifcAlgorithm(new IntuitionisticOptions(ThresholdScanOrder.OrderFree, Diagnostics: diagnostics))
+            .Run(relation, TestContext.Current.CancellationToken);
+        return (found, diagnostics);
+    }
+
+    private static (double Alpha, double Beta, int Count)[] Frontier(SearchDiagnostics diagnostics) =>
+        [.. diagnostics.AdmissiblePairs.Where(pair => pair.OnFrontier).OrderBy(pair => pair.Alpha)
+            .Select(pair => (System.Math.Round(pair.Alpha, 4), System.Math.Round(pair.Beta, 4), pair.ClusterCount))];
+
+    [Fact]
+    public void OrderFree_Hung_SameClassesAsBothScans_OwnThresholds()
+    {
+        var (found, diagnostics) = OrderFree(Hung());
+
+        Assert.Equal(3, found.Count);
+        Assert.Equal(5, found[0].ClusterCount);
+        Assert.Equal((0.8, 0.1), (found[0].Alpha, found[0].Beta!.Value));
+        Assert.Equal(137.0 / 30.0, found[0].Score, precision: 12);
+        Assert.Equal("Q_IFS", found[0].CriterionName);
+        Assert.Equal(new[] { "0,3,7", "1,5", "2", "4,8,9", "6" },
+                     found[0].MemberSets.Select(set => string.Join(',', set)).Order(StringComparer.Ordinal));
+        // the two scan orders stop at the two ends of the frontier
+        Assert.Equal([(0.1, 0.1, 5), (0.8, 0.2, 5)], Frontier(diagnostics));
+        // the class of two objects has two equally good typical points
+        Assert.Contains("the clusters are the same", ClusterResult.DescribeTie(found));
+    }
+
+    [Fact]
+    public void OrderFree_SevenObjects_SameClasses_BetterTypicalPoints()
+    {
+        var (found, diagnostics) = OrderFree(SevenObjects());
+
+        Assert.Equal([(0.25, 0.5, 2)], Frontier(diagnostics));
+        Assert.Equal([[0, 1, 6], [2, 3, 4, 5]], found[0].MemberSets);
+        Assert.Equal([2, 4], OneBased(found[0].Centers));          // the scans return x1, x6 at (0.25, 0.5)
+        Assert.Equal((0.75, 0.2), (found[0].Alpha, found[0].Beta!.Value));
+        Assert.Equal(1.3625, found[0].Score, precision: 12);
+    }
+
+    [Fact]
+    public void OrderFree_FiveCars_PublishedTypicalPoints()
+    {
+        var (found, diagnostics) = OrderFree(IntuitionisticSimilarity.BuildTolerance(FiveCars(), IntuitionisticMeasure.Hamming));
+
+        Assert.Equal([2, 5], OneBased(found[0].Centers));
+        Assert.Equal(1.7625, found[0].Score, precision: 10);
+        Assert.Equal(0.716667, found[0].Alpha, precision: 6);
+        Assert.Equal(0.1, found[0].Beta!.Value, precision: 12);
+        Assert.Equal([(0.6333, 0.1333, 2), (0.7, 0.25, 2)], Frontier(diagnostics));
+    }
+
+    [Fact]
+    public void OrderFree_TenCars_FewerClustersThanThePrintedScan()
+    {
+        var tolerance = IntuitionisticSimilarity.BuildTolerance(TenCars(), IntuitionisticMeasure.Hamming);
+        var printed = new DPaifcAlgorithm().Run(tolerance, TestContext.Current.CancellationToken);
+        var (found, diagnostics) = OrderFree(tolerance);
+
+        Assert.Equal(6, printed[0].ClusterCount);                  // the first pair of the printed order
+        Assert.Equal(4, found[0].ClusterCount);                    // the least number of clusters
+        Assert.Equal([1, 3, 6, 10], OneBased(found[0].Centers));
+        Assert.Equal(3.194444, found[0].Score, precision: 6);
+        Assert.Equal([6, 5, 4, 4], Frontier(diagnostics).Select(pair => pair.Count));
+        // the result lists the least number first, then the larger numbers of the frontier
+        Assert.Equal([4, 5, 6], found.Select(result => result.ClusterCount).Distinct());
+    }
+
+    [Fact]
+    public void OrderFree_TenCarsClosure_TwoClusters_PublishedFourOnTheFrontier()
+    {
+        var diagnostics = new SearchDiagnostics();
+        var found = new DPaifcTcAlgorithm(options: new IntuitionisticOptions(ThresholdScanOrder.OrderFree, Diagnostics: diagnostics))
+            .Run(TenCars(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, found[0].ClusterCount);
+        Assert.Equal([1, 9], found[0].MemberSets.Select(set => set.Length).Order());
+        Assert.Equal([(0.4833, 0.1667, 4), (0.5167, 0.1833, 2)], Frontier(diagnostics));
+
+        var four = found.First(result => result.ClusterCount == 4);
+        Assert.Equal(new[] { "0,2,5,6,8", "1", "3,9", "4,7" },
+                     four.MemberSets.Select(set => string.Join(',', set)).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void OrderFree_IsNotDefinedForAGivenNumberOfClusters()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new DAifcAlgorithm(3, new IntuitionisticOptions(ThresholdScanOrder.OrderFree))
+                .Run(Hung(), TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// The statements behind the order-free definition, on random relations: the number of clusters
+    /// does not grow when the pair becomes looser; the printed scan stops at the frontier pair with
+    /// the least α and the opposite scan at the one with the largest β; the least number of clusters
+    /// is attained on the frontier; an allotment exists at its own thresholds.
+    /// </summary>
+    [Fact]
+    public void OrderFree_RandomRelations_MonotoneCount_ScansStopOnTheFrontier()
+    {
+        var random = new Random(20261110);
+        int withAllotments = 0, scanAboveLeast = 0;
+
+        for (int trial = 0; trial < 300; trial++)
+        {
+            const int size = 7;
+            var lowerTriangle = new double[size - 1][];
+            for (int row = 1; row < size; row++)
+            {
+                lowerTriangle[row - 1] = new double[2 * row];
+                for (int column = 0; column < row; column++)
+                {
+                    int membershipTenths = random.Next(0, 11);
+                    int nonMembershipTenths = random.Next(0, 11 - membershipTenths);
+                    lowerTriangle[row - 1][2 * column] = membershipTenths / 10.0;
+                    lowerTriangle[row - 1][2 * column + 1] = nonMembershipTenths / 10.0;
+                }
+            }
+            var relation = Relation(lowerTriangle);
+
+            var (found, diagnostics) = OrderFree(relation);
+            var inner = new DPaifcAlgorithm(With(ThresholdScanOrder.BetaInner)).Run(relation, TestContext.Current.CancellationToken);
+            var outer = new DPaifcAlgorithm(With(ThresholdScanOrder.BetaOuter)).Run(relation, TestContext.Current.CancellationToken);
+            var pairs = diagnostics.AdmissiblePairs;
+
+            if (found.Count == 0)
+            {
+                Assert.Empty(inner);
+                Assert.Empty(outer);
+                continue;
+            }
+            withAllotments++;
+
+            foreach (var looser in pairs)
+                foreach (var stricter in pairs)
+                    if (looser.Alpha <= stricter.Alpha && looser.Beta >= stricter.Beta)
+                        Assert.True(looser.ClusterCount <= stricter.ClusterCount);
+
+            var frontier = pairs.Where(pair => pair.OnFrontier).ToList();
+            var leastAlpha = frontier.MinBy(pair => pair.Alpha)!;
+            var largestBeta = frontier.MaxBy(pair => pair.Beta)!;
+            Assert.Equal((leastAlpha.Alpha, leastAlpha.Beta, leastAlpha.ClusterCount),
+                         (inner[0].Alpha, inner[0].Beta!.Value, inner[0].ClusterCount));
+            Assert.Equal((largestBeta.Alpha, largestBeta.Beta, largestBeta.ClusterCount),
+                         (outer[0].Alpha, outer[0].Beta!.Value, outer[0].ClusterCount));
+
+            int least = pairs.Min(pair => pair.ClusterCount);
+            Assert.Equal(least, found[0].ClusterCount);
+            Assert.Equal(least, frontier.Min(pair => pair.ClusterCount));
+            if (inner[0].ClusterCount > least || outer[0].ClusterCount > least) scanAboveLeast++;
+
+            // the allotment exists at its own thresholds, with the same number of clusters
+            Assert.Contains(pairs, pair => pair.Alpha == found[0].Alpha && pair.Beta == found[0].Beta!.Value
+                                           && pair.ClusterCount == found[0].ClusterCount);
+        }
+
+        Assert.True(withAllotments >= 30, $"only {withAllotments} relations had allotments");
+        Assert.True(scanAboveLeast > 0, "no relation on which a scan returns more than the least number of clusters");
+    }
+
     [Fact]
     public void TieDescription_TellsEqualClustersFromDifferentAllotments()
     {

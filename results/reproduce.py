@@ -88,12 +88,18 @@ runs = [
     ("ifs_hung_daifc3",               "hung_ifs_membership.csv", "daifc",  NONMEMBERSHIP + ["--clusters", "3"]),
     ("ifs_cars5_dpaifc-tc",           "cars5_ifs.csv",    "dpaifc-tc", []),
     ("ifs_cars10_dpaifc-tc",          "cars10_ifs.csv",   "dpaifc-tc", []),
+    # the order-free definition: all pairs of thresholds, least number of clusters, quality Q in the column F
+    ("ifs_hung_dpaifc_order-free",    "hung_ifs_membership.csv", "dpaifc", NONMEMBERSHIP + ["--scan-order", "order-free"]),
+    ("ifs_cars5_dpaifc_order-free",   "cars5_ifs.csv",    "dpaifc",    ["--scan-order", "order-free"]),
+    ("ifs_cars10_dpaifc_order-free",  "cars10_ifs.csv",   "dpaifc",    ["--scan-order", "order-free"]),
+    ("ifs_cars10_dpaifc-tc_order-free", "cars10_ifs.csv", "dpaifc-tc", ["--scan-order", "order-free"]),
 ]
 
 lines = ["# Reproduction runs", "",
          "Each row is the top-ranked allotment of one command-line run; `overlap` is the number of objects in more than one cluster (the w of the book); `misclassified` is n · (1 − purity) and is "
          "reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process."
-         " For the runs on intuitionistic fuzzy data (`ifs_…`) the column α* holds the pair of thresholds (α, β).", "",
+         " For the runs on intuitionistic fuzzy data (`ifs_…`) the column α* holds the pair of thresholds (α, β)."
+         " In the `order-free` runs these are the own thresholds of the allotment and the column F holds the quality Q.", "",
          "| run | n | c | α* | F | centres (1-based) | sizes | overlap | purity | ARI | NMI | misclassified | time s |",
          "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
 header_lines = len(lines)

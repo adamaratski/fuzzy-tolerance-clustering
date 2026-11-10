@@ -37,7 +37,7 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "D-PAIFC", "D-AIFC(c)", "D-PAIFC-TC"
     ];
 
-    public IReadOnlyList<string> ScanOrders  { get; } = ["β inner", "β outer"];
+    public IReadOnlyList<string> ScanOrders  { get; } = ["β inner", "β outer", "order-free"];
     public IReadOnlyList<string> IfsMeasures { get; } = ["Hamming", "Euclidean"];
 
     public IReadOnlyList<DistanceInfo> Distances      { get; } = DistanceParameterFactory.Items;
@@ -144,6 +144,8 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
                 (!double.TryParse(UserAlphaText, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out double a) || a <= 0 || a >= 1))
                 return "α* must be a number in (0, 1).";
+            if (SelectedAlgorithm == "D-AIFC(c)" && SelectedScanOrder == "order-free")
+                return "The order-free definition is available for D-PAIFC and D-PAIFC-TC. Choose β inner or β outer for D-AIFC(c).";
             if (!IsIntuitionistic && !string.IsNullOrWhiteSpace(AccuracyText) &&
                 (!double.TryParse(AccuracyText, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out double e) || e <= 0 || e >= 1))
@@ -225,7 +227,12 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
             MaxIntersections: ShowIntersections && int.TryParse(IntersectionsText, out int w) ? System.Math.Max(0, w) : 0,
             MinClusterPower:  System.Math.Max(1, MinClusterPower),   // the Settings page edits this value
             MaxClusterPower:  ShowMaxClusterSize && int.TryParse(MaxClusterSizeText, out int u) ? System.Math.Max(0, u) : 0,
-            ThresholdScanOrder:    IsIntuitionistic ? (SelectedScanOrder == "β outer" ? "beta-outer" : "beta-inner") : null,
+            ThresholdScanOrder:    !IsIntuitionistic ? null : SelectedScanOrder switch
+            {
+                "β outer"    => "beta-outer",
+                "order-free" => "order-free",
+                _            => "beta-inner"
+            },
             IntuitionisticMeasure: IsIntuitionistic ? SelectedIfsMeasure.ToLowerInvariant() : null
         );
     }

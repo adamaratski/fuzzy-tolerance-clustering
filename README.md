@@ -151,7 +151,7 @@ Options of `cluster`:
 | `--criterion` | `f1`, `f2` | `f1` |
 | `--nonmembership` | file with the matrix of non-memberships; with `--input` as the matrix of memberships it gives an intuitionistic fuzzy tolerance (`dpaifc`, `daifc`, `dpaifc-tc`) | — |
 | `--ifs-measure` | `hamming`, `euclidean`: similarity measure that builds the tolerance from intuitionistic attribute data | `hamming` |
-| `--scan-order` | `beta-inner`, `beta-outer`: order in which the pairs $(\alpha, \beta)$ are scanned by the intuitionistic algorithms; `beta-outer` reproduces the published D-PAIFC result on the relation of Hung, Lee and Fuh | `beta-inner` |
+| `--scan-order` | `beta-inner`, `beta-outer`, `order-free`: order in which the pairs $(\alpha, \beta)$ are scanned by the intuitionistic algorithms; `beta-outer` reproduces the published D-PAIFC result on the relation of Hung, Lee and Fuh; `order-free` examines all admissible pairs and returns the least number of clusters (`dpaifc`, `dpaifc-tc`; `daifc` rejects it), see below | `beta-inner` |
 | `--max-nodes` | node budget of the combination search | 500 000 000 |
 | `--top` | number of allotments reported | 200 |
 | `--format`, `--output` | `table`, `json`, `csv`; output file | `table`, stdout |
@@ -170,6 +170,25 @@ The intuitionistic algorithms do not use `--distance`, `--normalize`, `--criteri
 shows $\beta$ and, for `daifc`, the intersection bound $w$; JSON has `beta` and
 `intersectionBound`.
 
+The pairs $(\alpha, \beta)$ are only partially ordered, so the first admissible pair of the
+printed algorithm depends on the scan order: `beta-inner` stops at the loosest admissible pair
+with the least $\alpha$, `beta-outer` at the one with the largest $\beta$, and neither is
+guaranteed to give the least number of clusters. `--scan-order order-free` is the definition
+proposed in the accompanying book, not a published one; the printed scan orders remain the
+default. It examines all admissible pairs; the loosest of them form the frontier, and the least
+number of clusters $c^*$ is attained on the frontier. Among all allotments with $c^*$ fully
+separated clusters, at whatever pair they occur, the result is the one with the largest quality
+$Q_{IFS} = \sum$ over the clusters of (mean membership $-$ mean non-membership); at one pair
+$Q_{IFS}$ differs from $F_{IFS}$ by the constant $c(\alpha - \beta)$, so the ranking within a
+pair is the same. The thresholds printed with an allotment are its own: its least membership
+degree and its largest non-membership degree. The criterion column is named `Q_IFS`; after the
+allotments with $c^*$ clusters the table lists, for every larger number of clusters on the
+frontier, the allotments of the frontier pairs with that number. The text output lists the
+frontier (`Admissible pairs of thresholds: N. The loosest of them (α, β) → c:`); JSON has an
+object `thresholds` with `admissiblePairs` (the count) and `frontier` (a list of `alpha`,
+`beta`, `clusterCount`). If the node budget runs out, no allotment is returned, because the
+least number of clusters would not be known.
+
 ```bash
 mfuzzy cluster --algorithm dafc-u --max-size 6 --matrix --input datasets/tamura_16.csv
 mfuzzy size --input datasets/sneath_sokal.csv --distance squared-euclidean --normalize max
@@ -177,10 +196,18 @@ mfuzzy bounds --objects 150 --clusters 2 --alpha 0.80384 --shape gaussian
 mfuzzy cluster --algorithm daifc --clusters 3 --input datasets/hung_ifs_membership.csv \
     --nonmembership datasets/hung_ifs_nonmembership.csv
 mfuzzy cluster --algorithm dpaifc-tc --input datasets/cars10_ifs.csv --ifs-measure hamming
+mfuzzy cluster --algorithm dpaifc --input datasets/cars10_ifs.csv --scan-order order-free
 ```
 
 The first of the two new examples gives $(\alpha, \beta) = (0.4, 0.6)$ with $w = 1$; the second
-gives four clusters at $(0.4833, 0.1667)$.
+gives four clusters at $(0.4833, 0.1667)$. The last line gives four clusters at
+$(0.5333, 0.2333)$, where the default order stops at a pair with six clusters. With
+`dpaifc-tc` on the same file, `order-free` gives two clusters (nine objects and one) at
+$(0.5167, 0.1833)$; the published four clusters at $(0.4833, 0.1667)$ are listed after them. On
+the relation of Hung, Lee and Fuh (`--input datasets/hung_ifs_membership.csv --nonmembership
+datasets/hung_ifs_nonmembership.csv`) `dpaifc` with `order-free` gives five clusters at
+$(0.8, 0.1)$, $Q_{IFS} = 4.5667$; the frontier has $(0.1, 0.1)$ and $(0.8, 0.2)$, both with five
+clusters, the pairs at which the two printed scan orders stop.
 
 ### Desktop workbench
 
@@ -199,7 +226,7 @@ What it shows:
 - an inference-system page;
 - a CPU, memory and GPU monitor.
 
-- the category *Intuitionistic* (D-PAIFC, D-AIFC(c), D-PAIFC-TC) with the parameters $c$, scan order and measure.
+- the category *Intuitionistic* (D-PAIFC, D-AIFC(c), D-PAIFC-TC) with the parameters $c$, scan order (*β inner*, *β outer*, *order-free*) and measure.
 
 Both attribute data and tolerance matrices can be opened and clustered. Intuitionistic data
 are opened with *Open data → Intuitionistic tolerance (μ and ν matrices)…* (two file dialogs:

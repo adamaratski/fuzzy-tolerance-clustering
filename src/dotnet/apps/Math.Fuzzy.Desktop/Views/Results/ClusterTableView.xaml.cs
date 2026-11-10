@@ -26,12 +26,13 @@ public partial class ClusterTableView : UserControl
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ClusterTableTabViewModel.HasBeta)) ShowBeta(_viewModel?.HasBeta == true);
+        if (e.PropertyName is nameof(ClusterTableTabViewModel.HasBeta) or nameof(ClusterTableTabViewModel.CriterionHeader))
+            ShowBeta(_viewModel?.HasBeta == true);
     }
 
     private void ShowBeta(bool show)
     {
         BetaColumn.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        ScoreColumn.Header    = show ? "F" : "F₁";
+        ScoreColumn.Header    = _viewModel?.CriterionHeader ?? "F₁";
     }
 }

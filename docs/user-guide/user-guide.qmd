@@ -236,14 +236,24 @@ The category *Intuitionistic* has its own parameters; *Distance*, *Normalize*,
 
 * **Clusters c** (D-AIFC(c)): the number of clusters.
 * **Scan order** (all three): the order in which the pairs $(\alpha, \beta)$ are
-  scanned, *β inner* (the default) or *β outer*. *β outer* reproduces the published
-  D-PAIFC result on the relation of Hung, Lee and Fuh.
+  scanned, *β inner* (the default), *β outer* or *order-free*. *β outer* reproduces the
+  published D-PAIFC result on the relation of Hung, Lee and Fuh. The pairs are only
+  partially ordered, so the first admissible pair depends on the order, and neither
+  *β inner* nor *β outer* is guaranteed to give the least number of clusters.
+  *order-free* is the definition proposed in the accompanying book, not a published one.
+  It examines all admissible pairs, finds the least number of clusters on the frontier of
+  the loosest pairs, and among all allotments with that number returns the one with the
+  largest quality $Q_{IFS}$, the sum over the clusters of the mean membership minus the
+  mean non-membership. It is available for D-PAIFC and D-PAIFC-TC; with D-AIFC(c) the
+  workbench shows a parameter message instead of running.
 * **Measure** (*Hamming* or *Euclidean*): the similarity measure that builds the
   tolerance from intuitionistic attribute data; it is not used when a tolerance
   was opened as two matrices.
 
 The result line shows the pair $(\alpha, \beta)$ and, for D-AIFC(c), the
-bound $w$.
+bound $w$. For *order-free* the pair is the one of the allotment itself: its least
+membership degree and its largest non-membership degree; the status bar shows the same
+pair.
 
 A parameter that is missing or out of range is reported in red under the fields,
 and *Run selected* does nothing until it is corrected.
@@ -442,7 +452,8 @@ the repository documents the tool, the .NET library and the MATLAB toolbox.
 The intuitionistic algorithms `dpaifc`, `daifc` and `dpaifc-tc` take either two
 matrices (memberships with `--input`, non-memberships with `--nonmembership`) or one
 file of intuitionistic attribute data in pairs of columns (`--ifs-measure hamming` or
-`euclidean`); `--scan-order beta-inner` or `beta-outer` sets the order of the scan.
+`euclidean`); `--scan-order beta-inner`, `beta-outer` or `order-free` sets the order of the
+scan (`order-free` is not accepted by `daifc`).
 For example
 
 ```

@@ -24,6 +24,15 @@ Algorithms
   with c clusters exists; D-PAIFC-TC applies D-PAIFC to the transitive closure (max-min on the
   memberships, min-max on the non-memberships). The criterion is F_IFS. The published
   examples (Hung–Lee–Fuh relation, ten cars) are tests.
+- **Order-free scan** for D-PAIFC and D-PAIFC-TC, in the library, the command-line tool and the
+  workbench: the definition proposed in the accompanying book, not a published one; the printed
+  scan orders remain the default. The pairs (α, β) are only partially ordered, so the first
+  admissible pair depends on the scan order and neither printed order is guaranteed to give the
+  least number of clusters. The order-free scan examines all admissible pairs; the loosest of
+  them form the frontier, the least number of clusters c* is attained on the frontier, and among
+  all allotments with c* fully separated clusters the one with the largest quality
+  Q = Σ (mean membership − mean non-membership) over the clusters is the result. The thresholds
+  of an allotment are its own. If the node budget runs out, no allotment is returned.
 
 Search
 - Closure-based algorithms (D-AFC-TC, D-AFC-TC(α), D-PAFC-TC) rank the allotments of a level
@@ -46,15 +55,18 @@ Command-line tool
   largest membership.
 - JSON output is always an object with `results` and `search`.
 - Intuitionistic algorithms: options `--nonmembership`, `--ifs-measure hamming|euclidean`,
-  `--scan-order beta-inner|beta-outer` (`beta-outer` reproduces the published D-PAIFC result);
-  an extra `Beta` column in the table, `β` and `w` in the best line, `beta` and
+  `--scan-order beta-inner|beta-outer|order-free` (`beta-outer` reproduces the published D-PAIFC
+  result; `order-free` is available for `dpaifc` and `dpaifc-tc`, `daifc` rejects it; the
+  criterion column is named `Q_IFS`, the text output lists the frontier, JSON has an object
+  `thresholds` with `admissiblePairs` and `frontier`); an extra `Beta` column in the table, `β` and `w` in the best line, `beta` and
   `intersectionBound` in JSON. `--distance`, `--normalize`, `--criterion` and `--accuracy`
   are rejected for these algorithms.
 
 Desktop workbench
 - *Open data → Intuitionistic tolerance (μ and ν matrices)…* and *Intuitionistic attribute
   data…*; the category *Intuitionistic* with D-PAIFC, D-AIFC(c) and D-PAIFC-TC; parameters:
-  number of clusters (D-AIFC(c)), scan order, measure (attribute data). The *Tolerance* tab
+  number of clusters (D-AIFC(c)), scan order (the third item, *order-free*, gives a parameter
+  message with D-AIFC(c)), measure (attribute data). The *Tolerance* tab
   shows the membership matrix, the result line the pair (α, β). Running an intuitionistic
   algorithm on ordinary data, or an ordinary algorithm on intuitionistic data, gives a
   message that says what to open or choose.
@@ -63,8 +75,8 @@ Data files
 - `hung_ifs_membership.csv`, `hung_ifs_nonmembership.csv`, `cars5_ifs.csv`, `cars10_ifs.csv`.
 
 Tests
-- 20 new tests for the intuitionistic algorithms; five runs on intuitionistic data in
-  `results/reproduce.py` (51 runs in all).
+- 27 new tests for the intuitionistic algorithms; nine runs on intuitionistic data in
+  `results/reproduce.py` (55 runs in all).
 
 Other
 - MATLAB / GNU Octave toolbox rewritten to follow the algorithms (D-AFC(c), D-PAFC, D-AFC-TC,

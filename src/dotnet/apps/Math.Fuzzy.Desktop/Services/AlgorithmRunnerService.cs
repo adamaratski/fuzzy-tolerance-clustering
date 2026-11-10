@@ -25,7 +25,10 @@ public sealed class AlgorithmRunnerService(IWorkspaceService workspace) : IAlgor
             ct);
 
         progress.Report(new($"Done. {results.Count} solution(s) found.", 1.0));
-        return new RunOutcome(results, diagnostics.BudgetExhausted, diagnostics.NodesVisited);
+        return new RunOutcome(results, diagnostics.BudgetExhausted, diagnostics.NodesVisited)
+        {
+            Frontier = [.. diagnostics.AdmissiblePairs.Where(pair => pair.OnFrontier).OrderBy(pair => pair.Alpha)]
+        };
     }
 
     public async Task<RunOutcome> RunAsync(

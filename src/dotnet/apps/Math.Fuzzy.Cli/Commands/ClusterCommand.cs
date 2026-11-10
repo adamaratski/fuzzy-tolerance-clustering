@@ -14,7 +14,7 @@ public static class ClusterCommand
         var input     = new Option<FileInfo>("--input") { Description = "CSV file with attribute data (objects in rows), or with an n × n fuzzy tolerance matrix when --matrix is given", Required = true };
         var matrix    = new Option<bool>("--matrix") { Description = "The input file is a fuzzy tolerance matrix (values in [0, 1], symmetric), not attribute data" };
         var nonMember = new Option<FileInfo?>("--nonmembership") { Description = "Intuitionistic algorithms: CSV file with the non-membership matrix; --input is then the membership matrix. Without it --input is intuitionistic attribute data (columns in pairs: membership, non-membership)" };
-        var scanOrder = new Option<string?>("--scan-order") { Description = "Intuitionistic algorithms: order of the scan over the threshold pairs, beta-inner (default) | beta-outer" };
+        var scanOrder = new Option<string?>("--scan-order") { Description = "Intuitionistic algorithms: order of the scan over the threshold pairs, beta-inner (default) | beta-outer; order-free examines all pairs and returns the best allotment among the least number of clusters (dpaifc, dpaifc-tc)" };
         var ifsMeasure = new Option<string?>("--ifs-measure") { Description = "Intuitionistic algorithms on attribute data: similarity measure, hamming (default) | euclidean" };
         var clusters  = new Option<int?>("--clusters") { Description = "Number of clusters c (dafc, daifc: required; dafc-tc: optional)" };
         var alpha     = new Option<double?>("--alpha") { Description = "Threshold α in [0, 1] (dafc: search this level only; dafc-tc-alpha, dafc-taga-alpha: least admissible threshold)" };

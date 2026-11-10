@@ -225,7 +225,7 @@
                       AutomationProperties.Name="Scan order"
                       ItemsSource="{Binding ScanOrders}"
                       SelectedItem="{Binding SelectedScanOrder}"
-                      ToolTip="Order in which the pairs of thresholds (α, β) are scanned. β inner: the order of the printed algorithms. β outer: reproduces the published D-PAIFC result on Hung's relation."/>
+                      ToolTip="Order in which the pairs of thresholds (α, β) are scanned. β inner: the order of the printed algorithms. β outer: reproduces the published D-PAIFC result on Hung's relation. order-free: all pairs are examined; the best allotment among the least number of clusters, with its own thresholds (D-PAIFC, D-PAIFC-TC)."/>
             <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center" Text="Measure"/>
             <ComboBox Grid.Row="2" Grid.Column="1"

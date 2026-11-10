@@ -17,7 +17,15 @@ public enum ThresholdScanOrder
     /// β in the outer loop (descending), α in the inner loop (ascending): the order that
     /// reproduces the published D-PAIFC result on Hung's ten-object relation.
     /// </summary>
-    BetaOuter
+    BetaOuter,
+
+    /// <summary>
+    /// No scan order: all admissible pairs are examined and the result is the best allotment among
+    /// the least number of fully separated clusters, with its own thresholds; the allotments for
+    /// the other numbers of clusters on the frontier of the loosest admissible pairs follow.
+    /// D-PAIFC and D-PAIFC-TC only. See <see cref="OrderFreeSearch"/>.
+    /// </summary>
+    OrderFree
 }
 
 /// <summary>Settings shared by the intuitionistic algorithms.</summary>
@@ -50,6 +58,8 @@ public sealed class DPaifcAlgorithm(IntuitionisticOptions? options = null)
 
     public IReadOnlyList<ClusterResult> Run(IntuitionisticToleranceMatrix relation, CancellationToken ct = default)
     {
+        if (_options.ScanOrder == ThresholdScanOrder.OrderFree) return OrderFreeSearch.Run(relation, _options, ct);
+
         int objectCount = relation.Size;
         foreach (var (alpha, beta) in IntuitionisticSearch.ThresholdPairs(relation, _options.ScanOrder))
         {
@@ -86,6 +96,9 @@ public sealed class DAifcAlgorithm(int clusterCount, IntuitionisticOptions? opti
         int objectCount = relation.Size;
         if (clusterCount < 2 || clusterCount >= objectCount)
             throw new ArgumentException($"The number of clusters must satisfy 2 ≤ c < n = {objectCount}; got {clusterCount}.");
+        if (_options.ScanOrder == ThresholdScanOrder.OrderFree)
+            throw new ArgumentException(
+                "The order-free definition is available for D-PAIFC and D-PAIFC-TC; D-AIFC(c) scans the pairs of thresholds in the order beta-inner or beta-outer.");
 
         for (int intersectionBound = 0; intersectionBound <= objectCount; intersectionBound++)
         {
@@ -123,9 +136,11 @@ public sealed class DPaifcTcAlgorithm(
     {
         var closure = IntuitionisticSimilarity.TransitiveClosure(IntuitionisticSimilarity.BuildTolerance(data, measure));
         var found = new DPaifcAlgorithm(_options).Run(closure, ct);
+        // the order-free result lists the least number of clusters first; within a number the usual order
         return [.. found
             .Select(result => result with { TiebreakerScore = PrototypeDissimilarity(result, data) })
-            .Order(ClusterResult.Order)];
+            .OrderBy(result => result.ClusterCount)
+            .ThenBy(result => result, ClusterResult.Order)];
     }
 
     /// <summary>Runs the algorithm on a relation given directly: its closure, then D-PAIFC.</summary>
@@ -169,6 +184,8 @@ internal static class IntuitionisticSearch
     {
         var alphas = relation.AlphaSequence();
         var betas = relation.BetaSequence();
+        if (order == ThresholdScanOrder.OrderFree)
+            throw new ArgumentException("The order-free definition examines all pairs; it has no scan order.");
         if (order == ThresholdScanOrder.BetaInner)
         {
             foreach (double alpha in alphas)

@@ -214,16 +214,19 @@ public sealed partial class ClusterTableTabViewModel : ResultTabViewModel
     [ObservableProperty] private string _summary = "No results yet.";
     /// <summary>True when the results carry a non-membership threshold β (intuitionistic algorithms).</summary>
     [ObservableProperty] private bool _hasBeta;
+    /// <summary>Header of the criterion column: F₁, F of an intuitionistic scan, or Q of the order-free definition.</summary>
+    [ObservableProperty] private string _criterionHeader = "F₁";
 
     public void Update(IReadOnlyList<ClusterResult> results)
     {
         HasBeta = results.Count > 0 && results[0].Beta.HasValue;
+        CriterionHeader = !HasBeta ? "F₁" : results[0].CriterionName == "Q_IFS" ? "Q" : "F";
         Rows = results.Select((r, i) => new ClusterResultRow(i + 1, r)).ToList();
         SelectedRow = Rows.FirstOrDefault();
         Summary = results.Count == 0
             ? "No valid clustering found."
             : results[0].Beta is double beta
-                ? $"Best: c={results[0].ClusterCount}, α={results[0].Alpha:F4}, β={beta:F4}, F={results[0].Score:F4}"
+                ? $"Best: c={results[0].ClusterCount}, α={results[0].Alpha:F4}, β={beta:F4}, {(results[0].CriterionName == "Q_IFS" ? "Q" : "F")}={results[0].Score:F4}"
                 : $"Best: c={results[0].ClusterCount}, α={results[0].Alpha:F4}, F₁={results[0].Score:F4}";
     }
 }
@@ -252,7 +255,7 @@ public sealed partial class MembershipHeatmapTabViewModel : ResultTabViewModel
         _results = results;
         SolutionItems = results
             .Select((r, i) => r.Beta is double beta
-                ? $"#{i + 1} · c={r.ClusterCount} · α={r.Alpha:F2} · β={beta:F2} · F={r.Score:F3}"
+                ? $"#{i + 1} · c={r.ClusterCount} · α={r.Alpha:F2} · β={beta:F2} · {(r.CriterionName == "Q_IFS" ? "Q" : "F")}={r.Score:F3}"
                 : $"#{i + 1} · c={r.ClusterCount} · α={r.Alpha:F2} · F₁={r.Score:F3}")
             .ToList();
 

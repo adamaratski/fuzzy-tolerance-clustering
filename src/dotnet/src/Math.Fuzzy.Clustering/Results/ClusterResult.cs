@@ -56,7 +56,8 @@ public sealed record ClusterResult(
     {
         if (ranked.Count < 2) return null;
         var best = ranked[0];
-        var tied = ranked.Where(result => result.Score == best.Score && result.TiebreakerScore == best.TiebreakerScore).ToList();
+        var tied = ranked.Where(result => result.ClusterCount == best.ClusterCount && result.Score == best.Score
+                                          && result.TiebreakerScore == best.TiebreakerScore).ToList();
         if (tied.Count < 2) return null;
         return tied.All(best.HasSameClusters)
             ? $"{tied.Count} choices of typical points share the largest value of the criterion; the clusters are the same."

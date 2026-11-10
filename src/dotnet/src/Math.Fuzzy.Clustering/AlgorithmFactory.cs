@@ -115,7 +115,8 @@ public static class AlgorithmFactory
         {
             null or "" or "beta-inner" => ThresholdScanOrder.BetaInner,
             "beta-outer"               => ThresholdScanOrder.BetaOuter,
-            var other => throw new ArgumentException($"Unknown scan order: '{other}'. Valid names: beta-inner, beta-outer")
+            "order-free"               => ThresholdScanOrder.OrderFree,
+            var other => throw new ArgumentException($"Unknown scan order: '{other}'. Valid names: beta-inner, beta-outer, order-free")
         },
         MaxSearchNodes: options.MaxSearchNodes,
         MaxResults: options.MaxResults,

@@ -411,7 +411,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 BestAri    = "—";
                 StatusMessage = results.Count > 0
                     ? results[0].Beta is double bestBeta
-                        ? $"Done — {results.Count} solution(s). Best: c={results[0].ClusterCount}, (α, β)=({results[0].Alpha:F4}, {bestBeta:F4}), F={results[0].Score:F4}"
+                        ? $"Done — {results.Count} solution(s). Best: c={results[0].ClusterCount}, (α, β)=({results[0].Alpha:F4}, {bestBeta:F4}), {IntuitionisticCriterion(results[0])}={results[0].Score:F4}"
                           + (results[0].IntersectionBound is int bound and > 0 ? $", w={bound}" : "")
                           + (ClusterResult.DescribeTie(results) is { } tie ? $". {tie}" : "")
                         : $"Done — {results.Count} solution(s). Best: c={results[0].ClusterCount}, F₁={results[0].Score:F4}"
@@ -419,6 +419,10 @@ public sealed partial class ShellViewModel : ObservableObject
                         ? $"No valid clustering at α* = {ua.ToString(CultureInfo.InvariantCulture)}. Try α levels = All levels."
                         : "No valid clustering found for these parameters.";
             }
+
+            if (outcome.Frontier.Count > 0)
+                StatusMessage += "  Loosest admissible pairs (α, β) → c: "
+                    + string.Join("; ", outcome.Frontier.Select(pair => $"({pair.Alpha:F4}, {pair.Beta:F4}) → {pair.ClusterCount}")) + ".";
 
             if (outcome.SearchIncomplete)
                 StatusMessage += $"  ⚠ The search stopped at its node budget ({outcome.NodesVisited:N0} nodes): better allotments may exist.";
@@ -542,6 +546,9 @@ public sealed partial class ShellViewModel : ObservableObject
         return JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
     }
 
+    /// <summary>F for the criterion of a scan, Q for the threshold-free quality of the order-free definition.</summary>
+    private static string IntuitionisticCriterion(ClusterResult result) => result.CriterionName == "Q_IFS" ? "Q" : "F";
+
     private static string ResultsToCsv(IReadOnlyList<ClusterResult> results)
     {
         var sb = new StringBuilder();
@@ -623,7 +630,7 @@ public sealed partial class ShellViewModel : ObservableObject
         string name = Path.GetFileNameWithoutExtension(ws?.Name ?? "");
         BestResultSummary =
             best.Beta is double beta
-                ? $"{AlgorithmPanel.ChipText} · c={best.ClusterCount} · (α, β)=({best.Alpha:F2}, {beta:F2}) · F={best.Score:F3} · {name} n={n}"
+                ? $"{AlgorithmPanel.ChipText} · c={best.ClusterCount} · (α, β)=({best.Alpha:F2}, {beta:F2}) · {IntuitionisticCriterion(best)}={best.Score:F3} · {name} n={n}"
                 : $"{AlgorithmPanel.ChipText} · c={best.ClusterCount} · α*={best.Alpha:F2} · F₁={best.Score:F3} · {name} n={n}";
         BestCentres = best.Centers
             .Select((c, i) =>

@@ -1,6 +1,6 @@
 # Reproduction runs
 
-Each row is the top-ranked allotment of one command-line run; `overlap` is the number of objects in more than one cluster (the w of the book); `misclassified` is n · (1 − purity) and is reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process. For the runs on intuitionistic fuzzy data (`ifs_…`) the column α* holds the pair of thresholds (α, β).
+Each row is the top-ranked allotment of one command-line run; `overlap` is the number of objects in more than one cluster (the w of the book); `misclassified` is n · (1 − purity) and is reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process. For the runs on intuitionistic fuzzy data (`ifs_…`) the column α* holds the pair of thresholds (α, β). In the `order-free` runs these are the own thresholds of the allotment and the column F holds the quality Q.
 
 | run | n | c | α* | F | centres (1-based) | sizes | overlap | purity | ARI | NMI | misclassified | time s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -55,3 +55,7 @@ Each row is the top-ranked allotment of one command-line run; `overlap` is the n
 | ifs_hung_daifc3 | 10 | 3 | 0.40000, β 0.60000 | 2.26667 | [6, 8, 10] | [4, 6, 3] | 3 | — | — | — | — | 0.1 |
 | ifs_cars5_dpaifc-tc | 5 | 2 | 0.68333, β 0.10000 | 0.61667 | [3, 5] | [4, 1] | 0 | — | — | — | — | 0.1 |
 | ifs_cars10_dpaifc-tc | 10 | 4 | 0.48333, β 0.16667 | 1.73000 | [1, 2, 4, 5] | [5, 1, 2, 2] | 0 | — | — | — | — | 0.1 |
+| ifs_hung_dpaifc_order-free | 10 | 5 | 0.80000, β 0.10000 | 4.56667 | [1, 2, 3, 5, 7] | [3, 2, 1, 3, 1] | 0 | — | — | — | — | 0.1 |
+| ifs_cars5_dpaifc_order-free | 5 | 2 | 0.71667, β 0.10000 | 1.76250 | [2, 5] | [4, 1] | 0 | — | — | — | — | 0.1 |
+| ifs_cars10_dpaifc_order-free | 10 | 4 | 0.53333, β 0.23333 | 3.19444 | [1, 3, 6, 10] | [6, 1, 1, 2] | 0 | — | — | — | — | 0.1 |
+| ifs_cars10_dpaifc-tc_order-free | 10 | 2 | 0.51667, β 0.18333 | 1.48148 | [1, 6] | [9, 1] | 0 | — | — | — | — | 0.1 |
