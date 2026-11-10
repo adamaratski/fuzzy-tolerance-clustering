@@ -33,7 +33,15 @@ public sealed class Workset
 
     public IReadOnlyList<ClusterResult> Results { get; set; } = [];
 
-    public string Meta => IsIntuitionistic
+    /// <summary>
+    /// For a tolerance that was built from interval-valued, fuzzy-number, three-way or asymmetric
+    /// data: what the data are and how the tolerance was built. Null for other worksets.
+    /// </summary>
+    public string? DerivedFrom { get; init; }
+
+    public string Meta => DerivedFrom is not null
+        ? DerivedFrom
+        : IsIntuitionistic
         ? IntuitionisticData is { } ifsData
             ? $"{ifsData.Objects} × {ifsData.Attributes} · intuitionistic data"
             : $"{IntuitionisticTolerance!.Size} × {IntuitionisticTolerance.Size} · intuitionistic tolerance"

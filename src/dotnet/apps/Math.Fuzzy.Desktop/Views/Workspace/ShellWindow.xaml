@@ -227,6 +227,19 @@
                                     <MenuItem Header="Intuitionistic attribute data…"
                                               Command="{Binding OpenIntuitionisticDataCommand}"
                                               AutomationProperties.Name="Open intuitionistic data"/>
+                                    <Separator/>
+                                    <MenuItem Header="Interval-valued data…"
+                                              Command="{Binding OpenIntervalDataCommand}"
+                                              AutomationProperties.Name="Open interval-valued data"/>
+                                    <MenuItem Header="Fuzzy-number data…"
+                                              Command="{Binding OpenFuzzyNumberDataCommand}"
+                                              AutomationProperties.Name="Open fuzzy-number data"/>
+                                    <MenuItem Header="Three-way data…"
+                                              Command="{Binding OpenThreeWayDataCommand}"
+                                              AutomationProperties.Name="Open three-way data"/>
+                                    <MenuItem Header="Asymmetric proximity matrix…"
+                                              Command="{Binding OpenAsymmetricMatrixCommand}"
+                                              AutomationProperties.Name="Open asymmetric matrix"/>
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>

@@ -16,7 +16,8 @@ public sealed class AlgorithmRunnerService(IWorkspaceService workspace) : IAlgor
             MaxSearchNodes:        new MathFuzzy.Clustering.Algorithms.Intuitionistic.IntuitionisticOptions().MaxSearchNodes,
             Diagnostics:           diagnostics,
             ThresholdScanOrder:    options.ThresholdScanOrder,
-            IntuitionisticMeasure: workset.IntuitionisticData is null ? null : options.IntuitionisticMeasure);
+            IntuitionisticMeasure: workset.IntuitionisticData is null ? null : options.IntuitionisticMeasure,
+            Labels:                options.Labels);
 
         var results = await Task.Run(
             () => workset.IntuitionisticData is { } data
@@ -67,7 +68,9 @@ public sealed class AlgorithmRunnerService(IWorkspaceService workspace) : IAlgor
             MaxIntersections: options.Algorithm == "dpafc" ? options.MaxIntersections : null,
             MinClusterPower:  options.MinClusterPower,
             MaxClusterPower:  options.MaxClusterPower,
-            Diagnostics:      diagnostics);
+            Diagnostics:      diagnostics,
+            Labels:           options.Labels,
+            OpeningMethod:    options.OpeningMethod);
 
         var results = await Task.Run(
             () => data is not null

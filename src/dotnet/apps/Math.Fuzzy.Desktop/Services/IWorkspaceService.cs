@@ -23,6 +23,24 @@ public interface IWorkspaceService
     /// <summary>Loads a pre-built n×n tolerance matrix as a new workset and activates it.</summary>
     Workset LoadMatrix(string path);
 
+    /// <summary>
+    /// Loads interval-valued attribute data (columns name_lo, name_hi) and builds the tolerance
+    /// with the squared Euclidean measure that reproduces the published examples.
+    /// </summary>
+    Workset LoadIntervalData(string path);
+
+    /// <summary>Loads fuzzy-number data (suffix columns per attribute) and builds the tolerance.</summary>
+    Workset LoadFuzzyNumberData(string path);
+
+    /// <summary>
+    /// Loads three-way data (one row per object and situation) and builds the tolerance with
+    /// unitarisation and the squared generalised Euclidean distance.
+    /// </summary>
+    Workset LoadThreeWayData(string path);
+
+    /// <summary>Loads an asymmetric proximity matrix and builds the tolerance through the quasi-equivalence.</summary>
+    Workset LoadAsymmetricMatrix(string path);
+
     /// <summary>Loads an intuitionistic fuzzy tolerance from a membership and a non-membership matrix file.</summary>
     Workset LoadIntuitionisticRelation(string membershipPath, string nonMembershipPath);
 

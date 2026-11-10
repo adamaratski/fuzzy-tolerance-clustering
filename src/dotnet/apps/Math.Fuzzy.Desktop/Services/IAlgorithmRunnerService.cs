@@ -17,7 +17,9 @@ public sealed record AlgorithmRunOptions(
     int MinClusterPower = 1,
     int MaxClusterPower = 0,
     string? ThresholdScanOrder = null,
-    string? IntuitionisticMeasure = null
+    string? IntuitionisticMeasure = null,
+    IReadOnlyList<MathFuzzy.Clustering.LabelSpec>? Labels = null,
+    string? OpeningMethod = null
 );
 
 /// <summary>Structured run progress: phase text plus optional 0..1 completion fraction.</summary>

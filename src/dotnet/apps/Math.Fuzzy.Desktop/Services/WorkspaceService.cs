@@ -1,6 +1,11 @@
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Core.Distance;
+using MathFuzzy.Core.Asymmetric;
+using MathFuzzy.Core.FuzzyData;
+using MathFuzzy.Core.Interval;
 using MathFuzzy.Core.Intuitionistic;
+using MathFuzzy.Core.Normalization;
+using MathFuzzy.Core.ThreeWay;
 using System.IO;
 using MathFuzzy.Core.Matrix;
 using MathFuzzy.Core.Normalization;
@@ -48,6 +53,49 @@ public sealed class WorkspaceService : IWorkspaceService
             IsMatrixInput   = true,
             InputMatrix     = matrix,
             ToleranceMatrix = matrix.Clone()
+        };
+        _worksets.Add(ws);
+        Activate(ws);
+        return ws;
+    }
+
+    public Workset LoadIntervalData(string path)
+    {
+        var data = IntervalDataMatrix.FromCsv(path);
+        return AddDerived(path, IntervalTolerance.Build(data, IntervalMeasure.SquaredEuclidean),
+                          $"{data.Objects} × {data.Attributes} · interval-valued data · squared Euclidean measure");
+    }
+
+    public Workset LoadFuzzyNumberData(string path)
+    {
+        var data = FuzzyNumberDataMatrix.FromCsv(path);
+        return AddDerived(path, data.BuildTolerance(), $"{data.Objects} × {data.Attributes} · fuzzy-number data");
+    }
+
+    public Workset LoadThreeWayData(string path)
+    {
+        var data = ThreeWayDataMatrix.FromCsv(path);
+        return AddDerived(path, data.BuildTolerance(new MinMaxNormalization(), ThreeWayDistance.SquaredEuclidean),
+                          $"{data.Objects} × {data.Attributes} × {data.Situations} · three-way data");
+    }
+
+    public Workset LoadAsymmetricMatrix(string path)
+    {
+        var data = AsymmetricProximityMatrix.FromCsv(path);
+        return AddDerived(path, data.BuildTolerance(), $"{data.Size} × {data.Size} · asymmetric data · quasi-equivalence");
+    }
+
+    /// <summary>A workset whose tolerance was built from data of another kind; the algorithms run on the tolerance.</summary>
+    private Workset AddDerived(string path, FuzzyToleranceMatrix tolerance, string description)
+    {
+        var ws = new Workset
+        {
+            Name            = Path.GetFileName(path),
+            SourcePath      = path,
+            IsMatrixInput   = true,
+            InputMatrix     = tolerance,
+            ToleranceMatrix = tolerance.Clone(),
+            DerivedFrom     = description
         };
         _worksets.Add(ws);
         Activate(ws);

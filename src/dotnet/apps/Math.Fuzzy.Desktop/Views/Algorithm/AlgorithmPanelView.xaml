@@ -307,6 +307,40 @@
                       ToolTip="Aggregation operator of the transitive approximation. Automatic: the operator whose approximation is nearest to T."/>
         </Grid>
 
+        <!-- Labelled objects (algorithms with partial supervision) -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding ShowLabels, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="Labelled"/><LineBreak/><Run Text="objects"/>
+            </TextBlock>
+            <TextBox Grid.Column="1"
+                     AutomationProperties.Name="Labelled objects"
+                     Style="{StaticResource ParamValueEditable}"
+                     Text="{Binding LabelsText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Labelled objects, separated by commas: object:y, e.g. 1:1.0, 9:0.9 (object numbered from 1, y its least membership). For intuitionistic data object:y:f with the largest non-membership f. Append @k to put several objects into one class k."/>
+        </Grid>
+
+        <!-- Transitive opening (TO algorithms) -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding ShowOpening, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center" Text="Opening"/>
+            <ComboBox Grid.Column="1"
+                      AutomationProperties.Name="Opening method"
+                      ItemsSource="{Binding OpeningMethods}"
+                      SelectedItem="{Binding SelectedOpening}"
+                      ToolTip="How the transitive opening is computed. Complete linkage reproduces the published example and gives a maximal opening on it. Single-linkage order is the cited algorithm with the bound that keeps its result transitive."/>
+        </Grid>
+
         <!-- Alpha threshold α* -->
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowUserAlpha, Converter={StaticResource BoolToVisibility}}">

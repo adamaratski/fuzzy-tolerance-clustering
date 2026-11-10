@@ -202,6 +202,47 @@ public sealed partial class ShellViewModel : ObservableObject
         StatusMessage = $"Loaded: {ws.Name}";
     }
 
+    [RelayCommand]
+    private void OpenIntervalData() => OpenDerived("Open interval-valued data", _workspace.LoadIntervalData);
+
+    [RelayCommand]
+    private void OpenFuzzyNumberData() => OpenDerived("Open fuzzy-number data", _workspace.LoadFuzzyNumberData);
+
+    [RelayCommand]
+    private void OpenThreeWayData() => OpenDerived("Open three-way data", _workspace.LoadThreeWayData);
+
+    [RelayCommand]
+    private void OpenAsymmetricMatrix() => OpenDerived("Open asymmetric proximity matrix", _workspace.LoadAsymmetricMatrix);
+
+    /// <summary>
+    /// Opens data from which a fuzzy tolerance is built on loading (interval-valued, fuzzy-number,
+    /// three-way, asymmetric); every algorithm that accepts a tolerance matrix runs on the result.
+    /// </summary>
+    private void OpenDerived(string title, Func<string, Workset> load)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            Title  = title
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            var ws = load(dlg.FileName);
+            var vm = new WorksetViewModel { Model = ws, Name = ws.Name, Meta = ws.Meta, IsMatrixInput = true };
+            Worksets.Add(vm);
+            ActiveWorkset = vm;
+            if (AlgorithmPanel.IsIntuitionistic) AlgorithmPanel.SelectedAlgorithm = "D-AFC";
+            StatusMessage = $"Loaded: {ws.Name} · {ws.Meta}. The tolerance was built on loading; the relational, prototype-based and hierarchical algorithms run on it.";
+            SelectedTab = ResultTabs[0];
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Load error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     /// <summary>Opens an intuitionistic fuzzy tolerance: the membership matrix first, then the non-membership matrix.</summary>
     [RelayCommand]
     private void OpenIntuitionisticRelation()

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using MathFuzzy.Clustering;
 using MathFuzzy.Desktop.Services;
 
 namespace MathFuzzy.Desktop.ViewModels.Algorithm;
@@ -26,16 +27,26 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
     [ObservableProperty] private string _selectedScanOrder = "β inner";
     /// <summary>Intuitionistic algorithms on attribute data: the similarity measure that builds the tolerance.</summary>
     [ObservableProperty] private string _selectedIfsMeasure = "Hamming";
+    /// <summary>
+    /// Algorithms with partial supervision: the labelled objects, written as object:y (for
+    /// intuitionistic data object:y:f), separated by commas or spaces; objects are numbered from 1.
+    /// </summary>
+    [ObservableProperty] private string _labelsText = "";
+    /// <summary>TO algorithms: how the transitive opening is computed.</summary>
+    [ObservableProperty] private string _selectedOpening = "Complete linkage";
 
     public IReadOnlyList<string> Algorithms { get; } =
     [
-        "D-AFC", "D-AFC(u)", "D-PAFC",
+        "D-AFC", "D-AFC(u)", "D-PAFC", "D-AFC-PS(c)",
         "D-AFC-TC", "D-AFC-TC(α)", "D-PAFC-TC",
+        "D-AFC-TO", "D-AFC-TO(α)", "D-PAFC-TO",
         "D-AFC-TAGA", "D-AFC-TAGA(α)", "D-PAFC-TAGA",
         "H-AFC-TC", "H-AFC-TAGA",
         "D-PAFC-DR", "D-PAFC-TC-DR", "D-PAFC-TAGA-DR",
-        "D-PAIFC", "D-AIFC(c)", "D-PAIFC-TC"
+        "D-PAIFC", "D-AIFC(c)", "D-PAIFC-TC", "D-AIFC-PS(c)"
     ];
+
+    public IReadOnlyList<string> OpeningMethods { get; } = ["Complete linkage", "Single-linkage order"];
 
     public IReadOnlyList<string> ScanOrders  { get; } = ["β inner", "β outer", "order-free"];
     public IReadOnlyList<string> IfsMeasures { get; } = ["Hamming", "Euclidean"];
@@ -55,11 +66,12 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
 
     // One fixed list and one combo box per category: a combo box whose items never
     // change keeps its selection when the category changes.
-    public IReadOnlyList<string> RelationalVariants   { get; } = ["D-AFC", "D-AFC(u)", "D-PAFC"];
-    public IReadOnlyList<string> PrototypeVariants    { get; } = ["D-AFC-TC", "D-AFC-TC(α)", "D-PAFC-TC", "D-AFC-TAGA", "D-AFC-TAGA(α)", "D-PAFC-TAGA"];
+    public IReadOnlyList<string> RelationalVariants   { get; } = ["D-AFC", "D-AFC(u)", "D-PAFC", "D-AFC-PS(c)"];
+    public IReadOnlyList<string> PrototypeVariants    { get; } =
+        ["D-AFC-TC", "D-AFC-TC(α)", "D-PAFC-TC", "D-AFC-TO", "D-AFC-TO(α)", "D-PAFC-TO", "D-AFC-TAGA", "D-AFC-TAGA(α)", "D-PAFC-TAGA"];
     public IReadOnlyList<string> HierarchicalVariants { get; } = ["H-AFC-TC", "H-AFC-TAGA"];
     public IReadOnlyList<string> ReductionVariants    { get; } = ["D-PAFC-DR", "D-PAFC-TC-DR", "D-PAFC-TAGA-DR"];
-    public IReadOnlyList<string> IntuitionisticVariants { get; } = ["D-PAIFC", "D-AIFC(c)", "D-PAIFC-TC"];
+    public IReadOnlyList<string> IntuitionisticVariants { get; } = ["D-PAIFC", "D-AIFC(c)", "D-PAIFC-TC", "D-AIFC-PS(c)"];
 
     public bool IsRelational => CategoryText == "Relational";
     public bool IsPrototype  => CategoryText == "Prototype-based";
@@ -104,6 +116,11 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "D-PAFC-TAGA"    => "Principal allotment on the transitive approximation: its first splitting level.",
         "H-AFC-TC"       => "Every level of T̃: the whole hierarchy of allotments, shown as a dendrogram.",
         "H-AFC-TAGA"     => "Every level of the transitive approximation: a hierarchy that depends on the aggregation operator.",
+        "D-AFC-PS(c)"    => "c is given, and some objects are labelled with a least membership: only allotments that keep the labelled objects in different clusters with at least these memberships are admitted.",
+        "D-AFC-TO"       => "Transitive opening of T (a fuzzy equivalence below T) instead of the closure; the level is chosen by the leap heuristic.",
+        "D-AFC-TO(α)"    => "As D-AFC-TO, but the leap is searched only at levels not below the threshold α*.",
+        "D-PAFC-TO"      => "Principal allotment on the transitive opening: its first splitting level.",
+        "D-AIFC-PS(c)"   => "Intuitionistic fuzzy data, c is given, labelled objects with a least membership and a largest non-membership restrict the allotments.",
         "D-PAIFC"        => "Intuitionistic fuzzy data: the first pair of thresholds (α, β) with fully separated clusters, the least c.",
         "D-AIFC(c)"      => "Intuitionistic fuzzy data, c is given; clusters may share objects only if no fully separated allotment exists.",
         "D-PAIFC-TC"     => "Intuitionistic fuzzy data: transitive closure of the intuitionistic tolerance, then D-PAIFC; prototypes resolve ties.",
@@ -115,14 +132,19 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
     public string ChipText     => SelectedAlgorithm;
     public string CategoryText => SelectedAlgorithm switch
     {
-        "D-AFC" or "D-AFC(u)" or "D-PAFC"                                             => "Relational",
-        "D-AFC-TC" or "D-AFC-TC(α)" or "D-PAFC-TC" or "D-AFC-TAGA" or "D-AFC-TAGA(α)" or "D-PAFC-TAGA" => "Prototype-based",
+        "D-AFC" or "D-AFC(u)" or "D-PAFC" or "D-AFC-PS(c)"                            => "Relational",
+        "D-AFC-TC" or "D-AFC-TC(α)" or "D-PAFC-TC" or "D-AFC-TAGA" or "D-AFC-TAGA(α)" or "D-PAFC-TAGA"
+            or "D-AFC-TO" or "D-AFC-TO(α)" or "D-PAFC-TO"                             => "Prototype-based",
         "H-AFC-TC" or "H-AFC-TAGA"                                                    => "Hierarchical",
-        "D-PAIFC" or "D-AIFC(c)" or "D-PAIFC-TC"                                      => "Intuitionistic",
+        "D-PAIFC" or "D-AIFC(c)" or "D-PAIFC-TC" or "D-AIFC-PS(c)"                    => "Intuitionistic",
         _                                                                             => "Dim. reduction"
     };
 
-    public bool ShowClusterCount  => SelectedAlgorithm is "D-AFC" or "D-AIFC(c)";
+    public bool ShowClusterCount  => SelectedAlgorithm is "D-AFC" or "D-AIFC(c)" or "D-AFC-PS(c)" or "D-AIFC-PS(c)";
+    /// <summary>The algorithms with partial supervision take labelled objects.</summary>
+    public bool ShowLabels        => SelectedAlgorithm is "D-AFC-PS(c)" or "D-AIFC-PS(c)";
+    /// <summary>The TO algorithms offer two constructions of the transitive opening.</summary>
+    public bool ShowOpening       => SelectedAlgorithm is "D-AFC-TO" or "D-AFC-TO(α)" or "D-PAFC-TO";
     public bool ShowAlphaSelector => SelectedAlgorithm is "D-AFC";
     public bool ShowIntersections => SelectedAlgorithm is "D-PAFC";
     public bool ShowMaxClusterSize => SelectedAlgorithm is "D-AFC(u)";
@@ -134,8 +156,10 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         {
             if (ShowClusterCount && (!int.TryParse(ClusterCountText, out int c) || c < 2))
                 return IsIntuitionistic
-                    ? "D-AIFC(c) needs the number of clusters c (an integer ≥ 2). To search c, choose D-PAIFC."
-                    : "D-AFC needs the number of clusters c (an integer ≥ 2). To search c, choose D-PAFC.";
+                    ? $"{SelectedAlgorithm} needs the number of clusters c (an integer ≥ 2). To search c, choose D-PAIFC."
+                    : $"{SelectedAlgorithm} needs the number of clusters c (an integer ≥ 2). To search c, choose D-PAFC.";
+            if (ShowLabels && LabelsProblem() is { } labelsProblem)
+                return labelsProblem;
             if (ShowMaxClusterSize && (!int.TryParse(MaxClusterSizeText, out int u) || u < 1))
                 return "D-AFC(u) needs the maximal number of objects in a cluster u (an integer ≥ 1 and below n).";
             if (ShowIntersections && (!int.TryParse(IntersectionsText, out int w) || w < 0))
@@ -144,8 +168,8 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
                 (!double.TryParse(UserAlphaText, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out double a) || a <= 0 || a >= 1))
                 return "α* must be a number in (0, 1).";
-            if (SelectedAlgorithm == "D-AIFC(c)" && SelectedScanOrder == "order-free")
-                return "The order-free definition is available for D-PAIFC and D-PAIFC-TC. Choose β inner or β outer for D-AIFC(c).";
+            if (SelectedAlgorithm is "D-AIFC(c)" or "D-AIFC-PS(c)" && SelectedScanOrder == "order-free")
+                return $"The order-free definition is available for D-PAIFC and D-PAIFC-TC. Choose β inner or β outer for {SelectedAlgorithm}.";
             if (!IsIntuitionistic && !string.IsNullOrWhiteSpace(AccuracyText) &&
                 (!double.TryParse(AccuracyText, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out double e) || e <= 0 || e >= 1))
@@ -155,7 +179,40 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
     }
     public bool ShowTagaOperator => SelectedAlgorithm.Contains("TAGA");
     public bool ShowUserAlpha    =>
-        SelectedAlgorithm is "D-AFC-TC(α)" or "D-AFC-TAGA(α)" || (ShowAlphaSelector && SelectedAlphaSelector == "Manual");
+        SelectedAlgorithm is "D-AFC-TC(α)" or "D-AFC-TAGA(α)" or "D-AFC-TO(α)" || (ShowAlphaSelector && SelectedAlphaSelector == "Manual");
+
+    /// <summary>The labelled objects of the text field; an empty list when the field cannot be read.</summary>
+    private IReadOnlyList<LabelSpec> ParseLabels()
+    {
+        var parts = LabelsText.Split([',', ';', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        try { return [.. parts.Select(AlgorithmFactory.ParseLabel)]; }
+        catch (ArgumentException) { return []; }
+    }
+
+    /// <summary>What is wrong with the labelled objects of the text field, or null.</summary>
+    private string? LabelsProblem()
+    {
+        var parts = LabelsText.Split([',', ';', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        string form = IsIntuitionistic ? "object:y:f, for example 1:1.0:0.0, 5:0.9:0.1" : "object:y, for example 1:1.0, 9:0.9";
+        if (parts.Length == 0)
+            return $"{SelectedAlgorithm} needs labelled objects, written as {form} (objects are numbered from 1).";
+        try
+        {
+            foreach (string part in parts)
+            {
+                var label = AlgorithmFactory.ParseLabel(part);
+                if (IsIntuitionistic && label.NonMembership is null)
+                    return $"Label '{part}': intuitionistic data need a non-membership grade as well ({form}).";
+                if (!IsIntuitionistic && label.NonMembership is not null)
+                    return $"Label '{part}': D-AFC-PS(c) takes a membership grade only ({form}).";
+            }
+        }
+        catch (ArgumentException problem)
+        {
+            return problem.Message;
+        }
+        return null;
+    }
 
     partial void OnSelectedAlgorithmChanged(string value)
     {
@@ -163,6 +220,8 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowAlphaSelector));
         OnPropertyChanged(nameof(ShowIntersections));
         OnPropertyChanged(nameof(ShowMaxClusterSize));
+        OnPropertyChanged(nameof(ShowLabels));
+        OnPropertyChanged(nameof(ShowOpening));
         OnPropertyChanged(nameof(IsHierarchical));
         OnPropertyChanged(nameof(IsIntuitionistic));
         OnPropertyChanged(nameof(UsesAttributeDistance));
@@ -187,6 +246,7 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
     }
 
     partial void OnClusterCountTextChanged(string value) => OnPropertyChanged(nameof(ValidationError));
+    partial void OnLabelsTextChanged(string value)       => OnPropertyChanged(nameof(ValidationError));
 
     partial void OnIntersectionsTextChanged(string value) => OnPropertyChanged(nameof(ValidationError));
     partial void OnMaxClusterSizeTextChanged(string value) => OnPropertyChanged(nameof(ValidationError));
@@ -233,7 +293,9 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
                 "order-free" => "order-free",
                 _            => "beta-inner"
             },
-            IntuitionisticMeasure: IsIntuitionistic ? SelectedIfsMeasure.ToLowerInvariant() : null
+            IntuitionisticMeasure: IsIntuitionistic ? SelectedIfsMeasure.ToLowerInvariant() : null,
+            Labels:        ShowLabels ? ParseLabels() : null,
+            OpeningMethod: !ShowOpening ? null : SelectedOpening == "Single-linkage order" ? "single-linkage-order" : "complete-linkage"
         );
     }
 
@@ -248,6 +310,11 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "D-AFC-TAGA"     => "dafc-taga",
         "D-AFC-TAGA(α)"  => "dafc-taga-alpha",
         "H-AFC-TAGA"     => "hafc-taga",
+        "D-AFC-PS(c)"    => "dafc-ps",
+        "D-AFC-TO"       => "dafc-to",
+        "D-AFC-TO(α)"    => "dafc-to-alpha",
+        "D-PAFC-TO"      => "dpafc-to",
+        "D-AIFC-PS(c)"   => "daifc-ps",
         "D-PAIFC"        => "dpaifc",
         "D-AIFC(c)"      => "daifc",
         "D-PAIFC-TC"     => "dpaifc-tc",
