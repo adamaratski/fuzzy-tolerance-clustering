@@ -76,7 +76,7 @@ The window has four areas (see the figure above).
   scatter plot. *Algorithms* lists the five categories of algorithms; choosing a
   category returns to the Dashboard and selects the category's first algorithm.
   *Theory* holds two pages for exploring fuzzy sets and fuzzy inference.
-* **Header** of the Dashboard. *Open data* loads a CSV file or a tolerance matrix,
+* **Header** of the Dashboard. *Open data* loads a CSV file, a tolerance matrix or one of the other kinds of data (@sec-loading),
   *Export* saves the results of the last run, *Run selected* starts the algorithm
   configured in the right panel. While a run is in progress the button turns
   into *Stop*, next to it the algorithm name and the elapsed time are shown, and
@@ -95,7 +95,7 @@ The window has four areas (see the figure above).
 The status bar at the bottom reports what happened last: a loaded file, the
 result of a run with its validity indices, or the reason why a run did not start.
 
-# Loading data
+# Loading data {#sec-loading}
 
 ## CSV files
 
@@ -151,6 +151,44 @@ The *Tolerance* tab shows the matrix of memberships of such a workset. If an
 intuitionistic algorithm is started on ordinary data, or an ordinary algorithm on
 intuitionistic data, the status bar says what to open or which category to choose.
 
+## Interval-valued, fuzzy-number, three-way and asymmetric data {#sec-other-data}
+
+Four further items of the *Open data* menu, below the intuitionistic ones, read
+one CSV file each. The fuzzy tolerance is built while the file is loaded, and the
+result is a workset on which the relational, prototype-based and hierarchical
+algorithms run exactly as on a tolerance matrix. The *Tolerance* tab shows the
+tolerance; *Distance*, *Normalize* and *Accuracy ε* have no effect on such a
+workset, because the tolerance is already built. The workset line shows the kind
+of data.
+
+* *Interval-valued data…* The columns come in pairs `name_lo,name_hi` (the lower
+  and the upper bound of an attribute); an optional text column holds the object
+  names. The tolerance is built with the squared Euclidean measure between
+  intervals and unitarisation over both bounds. `datasets/ichino_oils_interval.csv`
+  (eight oils, four attributes) is an example; D-AFC with $c = 2$ gives
+  $\alpha^* = 0.8185$.
+* *Fuzzy-number data…* Every attribute takes the columns `name_m,name_a,name_b`
+  (modal value, left and right spread), or `name_ml,name_mr,name_a,name_b` (fuzzy
+  intervals), or `name_m,name_sigma` (Gaussian numbers). All attributes of one
+  file must be of the same kind. `datasets/yang_ko_30.csv` is an example.
+* *Three-way data…* One row per object and situation: the first column holds the
+  object, the second the situation, the remaining columns are the attributes.
+  Every object must have a row for every situation. The tolerance uses
+  unitarisation and the squared generalised Euclidean distance.
+  `datasets/sato_sato_threeway.csv` (38 boys, four measurements, three ages) is an
+  example; D-AFC with $c = 3$ gives $\alpha^* = 0.9312$ and clusters of 3, 7 and
+  28 objects.
+* *Asymmetric proximity matrix…* A square matrix that need not be symmetric (a
+  header row and a column of names are allowed). A zero diagonal is read as
+  dissimilarities, a unit diagonal as similarities. `datasets/children_dislike.csv`
+  (16 children) is an example; D-PAFC gives five clusters at $\alpha = 0.6667$.
+
+The workbench uses the defaults named above. Other settings of these
+constructions (other interval measures, the Ju–Yuan exponent, likeness instead of
+quasi-equivalence and so on) are available in the command-line tool
+(@sec-cli). Since these worksets have no attributes in the sense of the CSV
+files, the remarks on tolerance matrices apply to them as well.
+
 ## The data page
 
 *Data & worksets* shows the same list of worksets, the size of the active data
@@ -172,15 +210,20 @@ The blue chip at the top of the panel always shows the selected algorithm.
 | Relational | D-AFC | yes | The basic algorithm: the best allotment among $c$ clusters over all $\alpha$-levels of $T$. |
 | Relational | D-AFC(u) | no | The largest cluster size $u$ is given instead of $c$; the number of clusters and the threshold follow. The clusters may share objects only if no fully separated allotment exists. |
 | Relational | D-PAFC | no | The principal allotment: the least number of clusters at the first admissible level. |
+| Relational | D-AFC-PS($c$) | yes | Partial supervision: $c$ is given and some objects are labelled with a least membership; only allotments that keep the labelled objects in different clusters with at least these memberships are admitted. |
 | Prototype-based | D-AFC-TC | no | Replaces $T$ by its transitive closure $\widetilde{T}$; the level is chosen by the leap heuristic, the number of clusters follows from the level. |
 | Prototype-based | D-AFC-TC($\alpha$) | no | As D-AFC-TC, but the leap is searched only at levels not below a threshold $\alpha^*$ given by the user. |
 | Prototype-based | D-PAFC-TC | no | The principal allotment on $\widetilde{T}$: its first splitting level. |
-| Prototype-based | D-AFC-TAGA, D-AFC-TAGA($\alpha$), D-PAFC-TAGA | no | The same three algorithms with a transitive approximation built by an aggregation operator instead of the closure. |
+| Prototype-based | D-AFC-TO | no | As D-AFC-TC, but on a transitive opening of $T$ (a fuzzy equivalence below $T$) instead of the closure. |
+| Prototype-based | D-AFC-TO($\alpha$) | no | As D-AFC-TC($\alpha$), on the transitive opening; the threshold $\alpha^*$ is given by the user. |
+| Prototype-based | D-PAFC-TO | no | As D-PAFC-TC, on the transitive opening. |
+| Prototype-based | D-AFC-TAGA,D-AFC-TAGA($\alpha$), D-PAFC-TAGA | no | The same three algorithms with a transitive approximation built by an aggregation operator instead of the closure. |
 | Hierarchical | H-AFC-TC, H-AFC-TAGA | no | The allotments of every level of $\widetilde{T}$ or of the transitive approximation, shown as a dendrogram. |
 | Dim. reduction | D-PAFC-DR, D-PAFC-TC-DR, D-PAFC-TAGA-DR | no | Attribute selection: the same algorithms applied to a tolerance relation between the attributes. |
 | Intuitionistic | D-PAIFC | no | Intuitionistic fuzzy data: the first pair of thresholds $(\alpha, \beta)$ at which the intuitionistic fuzzy clusters are fully separated, i.e. the least number of clusters. |
 | Intuitionistic | D-AIFC(c) | yes | The number of clusters $c$ is given; the clusters may share objects only if no fully separated allotment exists (the bound $w$ on the pairwise intersections is raised 0, 1, …). |
 | Intuitionistic | D-PAIFC-TC | no | D-PAIFC on the transitive closure of the intuitionistic fuzzy tolerance (max-min on the memberships, min-max on the non-memberships). |
+| Intuitionistic | D-AIFC-PS($c$) | yes | The intuitionistic counterpart of D-AFC-PS($c$): labelled objects carry a least membership $y$ and a largest non-membership $f$. |
 
 : The algorithms of the workbench. {#tbl-algorithms}
 
@@ -219,7 +262,21 @@ The lower part depends on the algorithm:
   the **α\* threshold** entered below.
 * **Max size u** (D-AFC(u)): the largest number of objects a cluster may have,
   an integer below the number of objects.
-* **α\* threshold** (D-AFC-TC($\alpha$), D-AFC-TAGA($\alpha$)): the lowest admissible level.
+* **Clusters c** (D-AFC-PS($c$)): as for D-AFC.
+* **Labelled objects** (D-AFC-PS($c$), D-AIFC-PS($c$)): a text field with the
+  objects whose class is known. Objects are numbered from 1 and separated by
+  commas, each as `object:y`, where $y$ is the least membership the object must
+  have in its cluster, for example `1:1.0, 9:0.9`. For intuitionistic data the
+  form is `object:y:f`, with the largest non-membership $f$ added, for example
+  `1:1.0:0.0, 5:0.9:0.1`. Appending `@k` puts several labelled objects into one
+  class $k$: `3:0.8@1, 4:0.7@1, 9:0.9@2`. A field that cannot be read is reported
+  in red under the parameters. If no allotment is consistent with the labels, the
+  *Clusters* tab says "No valid clustering found".
+* **Opening** (D-AFC-TO, D-AFC-TO($\alpha$), D-PAFC-TO): the transitive opening of
+  $T$. *Complete linkage* (the default) reproduces the published example;
+  *Single-linkage order* is the cited algorithm with the bound that keeps its
+  result transitive.
+* **α\* threshold** (D-AFC-TC($\alpha$), D-AFC-TO($\alpha$), D-AFC-TAGA($\alpha$)): the lowest admissible level.
 * **Intersections w** (D-PAFC): the number of objects allowed to lie in more
   than one cluster; 0 asks for fully separated clusters.
 * **TAGA operator** (TAGA variants): the aggregation operator of the transitive
@@ -234,8 +291,9 @@ The lower part depends on the algorithm:
 The category *Intuitionistic* has its own parameters; *Distance*, *Normalize*,
 *Criterion* and *Accuracy ε* are not shown for it (the criterion is $F_{IFS}$):
 
-* **Clusters c** (D-AIFC(c)): the number of clusters.
-* **Scan order** (all three): the order in which the pairs $(\alpha, \beta)$ are
+* **Clusters c** (D-AIFC(c), D-AIFC-PS($c$)): the number of clusters.
+* **Labelled objects** (D-AIFC-PS($c$)): see above.
+* **Scan order** (all the algorithms of the category): the order in which the pairs $(\alpha, \beta)$ are
   scanned, *β inner* (the default), *β outer* or *order-free*. *β outer* reproduces the
   published D-PAIFC result on the relation of Hung, Lee and Fuh. The pairs are only
   partially ordered, so the first admissible pair depends on the order, and neither
@@ -244,8 +302,8 @@ The category *Intuitionistic* has its own parameters; *Distance*, *Normalize*,
   It examines all admissible pairs, finds the least number of clusters on the frontier of
   the loosest pairs, and among all allotments with that number returns the one with the
   largest quality $Q_{IFS}$, the sum over the clusters of the mean membership minus the
-  mean non-membership. It is available for D-PAIFC and D-PAIFC-TC; with D-AIFC(c) the
-  workbench shows a parameter message instead of running.
+  mean non-membership. It is available for D-PAIFC and D-PAIFC-TC; with D-AIFC(c)
+  and D-AIFC-PS($c$) the workbench shows a parameter message instead of running.
 * **Measure** (*Hamming* or *Euclidean*): the similarity measure that builds the
   tolerance from intuitionistic attribute data; it is not used when a tolerance
   was opened as two matrices.
@@ -467,3 +525,9 @@ $(0.4833, 0.1667)$. The table has an extra column *Beta*, and the options `--dis
 `--normalize`, `--criterion` and `--accuracy` are not used.
 
 The tool also has the commands `size` (choice of the largest cluster size $u$), `bounds` (bounds of the number of clusters), `matrix build`, `matrix closure`, `reduce` and `infer`; the README documents them.
+
+The workbench does not cover everything the library does. The stability analysis
+of interval-valued data, the selection of project-network paths, the reduction of
+large data and the analysis of fuzzy preference relations are available in the
+command-line tool only, as the sub-commands `interval-stability`,
+`interval-structure`, `project-paths`, `reduce` and `preference`.
