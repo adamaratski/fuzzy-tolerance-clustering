@@ -29,8 +29,11 @@ screenshots) explains it screen by screen; its source is [`docs/user-guide`](doc
 ## Algorithms
 
 Every algorithm runs on attribute data (objects in rows) or, with `--matrix`, on a fuzzy
-tolerance matrix given directly; the attribute-space reduction needs attribute data. The three
-intuitionistic algorithms (last rows) take intuitionistic fuzzy data instead, see below.
+tolerance matrix given directly; the attribute-space reduction needs attribute data. The
+intuitionistic algorithms (`dpaifc`, `daifc`, `dpaifc-tc`, `daifc-ps`) take intuitionistic fuzzy data instead, see
+below. Interval-valued, fuzzy-number, three-way and asymmetric data are turned into a tolerance
+matrix first and then run with any algorithm that takes a tolerance matrix ([other kinds of
+input](#other-kinds-of-input)).
 
 | Name | What is given | What is found | Book section |
 |------|---------------|---------------|--------------|
@@ -41,11 +44,16 @@ intuitionistic algorithms (last rows) take intuitionistic fuzzy data instead, se
 | `dafc-tc-alpha` | least threshold $\hat{\alpha}$ (`--alpha`) | leap level not below $\hat{\alpha}$ | D-AFC-TC($\alpha$) |
 | `dpafc-tc` | nothing | first splitting level of the closure | D-PAFC-TC |
 | `dafc-taga`, `dafc-taga-alpha`, `dpafc-taga` | aggregation operator `--taga` (default: chosen automatically) | as the `-tc` algorithms, on a transitive approximation | D-AFC-TAGA family |
+| `dafc-to` | nothing; `--opening complete-linkage \| single-linkage-order` | level of the transitive opening by the leap heuristic | D-AFC-TO |
+| `dafc-to-alpha` | least threshold $\hat{\alpha}$ (`--alpha`) | leap level of the opening not below $\hat{\alpha}$ | D-AFC-TO($\alpha$) |
+| `dpafc-to` | nothing | first splitting level of the opening | D-PAFC-TO |
+| `dafc-ps` | number of clusters $c$ and labelled objects (`--label object:y`, repeated; `@k` puts several objects into class $k$); `--intersections w` | $\alpha$, typical points; the labelled objects are typical points of their clusters | D-AFC-PS(c) |
 | `hafc-tc`, `hafc-taga` | nothing | the allotment of every level (hierarchy) | H-AFC-TC, H-AFC-TAGA |
 | `dpafc-dr`, `dpafc-tc-dr`, `dpafc-taga-dr` | nothing | attributes are clustered, one per cluster is kept, D-PAFC runs on the reduced data | Dimensionality reduction |
 | `dpaifc` | nothing | the first pair of thresholds $(\alpha, \beta)$ with fully separated intuitionistic fuzzy clusters (least number of clusters) | D-PAIFC |
 | `daifc` | number of clusters $c$ (`--clusters`) | $(\alpha, \beta)$, typical points; the clusters share objects only if no fully separated allotment exists ($w = 0, 1, \dots$) | D-AIFC(c) |
 | `dpaifc-tc` | nothing | D-PAIFC on the transitive closure of the intuitionistic fuzzy tolerance (max-min on the memberships, min-max on the non-memberships); ties by the prototype rule | D-PAIFC-TC |
+| `daifc-ps` | number of clusters $c$ and labelled objects (`--label object:y:f`, with membership $y$ and non-membership $f$); `--ps-rule step10 \| full-scan` | $(\alpha, \beta)$, typical points; the labelled objects are typical points of their clusters | D-AIFC-PS(c) |
 
 On a transitive closure or approximation the allotments of a level are ranked class by class
 (one typical point per equivalence class), so the prototype-based and hierarchical algorithms
@@ -128,7 +136,11 @@ dotnet run --project src/dotnet/apps/Math.Fuzzy.Cli -c Release -- cluster \
 | `bounds` | the set of potential numbers of clusters from one result (`--objects n --clusters c --alpha a --shape triangular\|gaussian`) |
 | `matrix build` | build the tolerance matrix $T$ of a data file and write it as CSV (`--distance`, `--normalize`, `--accuracy`, `--output`) |
 | `matrix closure` | read an $n\times n$ tolerance matrix and write its max-min transitive closure $\widetilde{T}$ |
-| `reduce` | attribute selection (`--method dpafc \| dpafc-tc \| dpafc-taga`): prints the selected attributes and, with `--output`, writes the reduced data |
+| `reduce` | attribute selection (`--method dpafc \| dpafc-tc \| dpafc-taga`): prints the selected attributes and, with `--output`, writes the reduced data; with `--algorithm <key>`, reduction of large data (see below) |
+| `interval-stability` | type of the clustering structure of interval-valued data and the plausible numbers of clusters |
+| `interval-structure` | the stable-structure technique for interval-valued data |
+| `project-paths` | selection of the paths of a project network with interval-valued durations |
+| `preference` | the most representative fuzzy preference relations of a group of experts and the best alternatives |
 | `infer` | evaluate an inference system for one input vector (`--system rules.json --input 5.1,3.5,1.4,0.2`); the JSON is written by `cluster --rules` or exported by the workbench |
 
 Options of `cluster`:
@@ -138,20 +150,32 @@ Options of `cluster`:
 | `--algorithm` | see the algorithm table | — |
 | `--input` | data file: comma, semicolon or tab separated, with or without a header. A label column — a text column with repeated values, or a column headed `class`, `label`, `labels`, `type`, `species`, `variety`, `target`, `category` or `group` — is left out of the data and used for the external indices; a column of object names is ignored. A missing value is an error | — |
 | `--matrix` | the input file is a fuzzy tolerance matrix (symmetric, values in [0, 1]; a header row and a column of names are allowed) | attribute data |
-| `--clusters` | $c$ for `dafc` and `daifc` (required) and `dafc-tc` (optional) | — |
-| `--alpha` | a single level for `dafc`; the least threshold for `dafc-tc-alpha`, `dafc-taga-alpha` | — |
+| `--interval`, `--fuzzy-numbers`, `--three-way`, `--asymmetric` | the input file is of that kind, see [other kinds of input](#other-kinds-of-input); at most one of them, `--matrix` and `--nonmembership` | attribute data |
+| `--clusters` | $c$ for `dafc`, `daifc`, `dafc-ps`, `daifc-ps` (required) and `dafc-tc` (optional) | — |
+| `--alpha` | a single level for `dafc`; the least threshold for `dafc-tc-alpha`, `dafc-taga-alpha`, `dafc-to-alpha` | — |
+| `--opening` | `complete-linkage`, `single-linkage-order`: how the transitive opening is computed (`dafc-to`, `dafc-to-alpha`, `dpafc-to`) | `complete-linkage` |
+| `--label` | a labelled object `object:y` (`daifc-ps`: `object:y:f`), objects numbered from 1; repeat the option; `object:y@k` puts several objects into class $k$ (`dafc-ps`, `daifc-ps`) | — |
+| `--ps-rule` | `step10`, `full-scan`: when the intersection bound is raised (`daifc-ps`) | `step10` |
 | `--max-size` | largest number of objects in a cluster; the parameter $u$ of `dafc-u` | no bound |
 | `--min-size` | least number of objects in a cluster | 1 |
-| `--intersections` | $w\ge 0$ for `dafc`, `dafc-u`, `dpafc` | `dpafc`: 0; `dafc`, `dafc-u`: automatic |
-| `--distance` | `euclidean`, `squared-euclidean`, `manhattan`, `chebyshev`, `minkowski`, `cosine`, `hamming` | `euclidean` |
+| `--intersections` | $w\ge 0$ for `dafc`, `dafc-u`, `dpafc`, `dafc-ps` | `dpafc`: 0; `dafc`, `dafc-u`: automatic |
+| `--distance` | `euclidean`, `squared-euclidean`, `manhattan`, `chebyshev`, `minkowski`, `cosine`, `hamming`; with `--three-way` only `hamming`, `euclidean`, `squared-euclidean` | `euclidean`; `--three-way`: `squared-euclidean` |
 | `--minkowski-p` | order $p$ | 3 |
 | `--normalize` | `minmax`, `max`, `none` | `minmax` |
-| `--accuracy` | $\varepsilon$, e.g. `0.00001` | full precision |
+| `--accuracy` | $\varepsilon$, e.g. `0.00001` (not with `--interval`) | full precision |
 | `--taga` | `auto`, `max`, `min`, `mean`, `median`, `umedian`, `dmedian` | `auto` |
 | `--criterion` | `f1`, `f2` | `f1` |
 | `--nonmembership` | file with the matrix of non-memberships; with `--input` as the matrix of memberships it gives an intuitionistic fuzzy tolerance (`dpaifc`, `daifc`, `dpaifc-tc`) | — |
 | `--ifs-measure` | `hamming`, `euclidean`: similarity measure that builds the tolerance from intuitionistic attribute data | `hamming` |
 | `--scan-order` | `beta-inner`, `beta-outer`, `order-free`: order in which the pairs $(\alpha, \beta)$ are scanned by the intuitionistic algorithms; `beta-outer` reproduces the published D-PAIFC result on the relation of Hung, Lee and Fuh; `order-free` examines all admissible pairs and returns the least number of clusters (`dpaifc`, `dpaifc-tc`; `daifc` rejects it), see below | `beta-inner` |
+| `--interval-measure` | `sqeuclid`, `euclid`, `bb`, `hausdorff`, `juyuan`, `sqeuclid-matching`, `euclid-matching` (`--interval`) | `sqeuclid` |
+| `--lambda` | exponent $\lambda\ge 1$ of the Ju–Yuan measure (`--interval`) | 2 |
+| `--interval-scaling` | `minmax`, `max`, `none`: scaling of the bounds (`--interval`) | `minmax` |
+| `--shape-left`, `--shape-right` | shape integrals $l$, $r$ of the shape functions (`--fuzzy-numbers`); 0.5 is the linear shape (triangular, trapezoidal) | 0.5 |
+| `--object-column`, `--situation-column` | names of the columns that hold the object and the situation (`--three-way`) | the first and the second column |
+| `--keep-self-similarity` | keep $1-d(x_i, x_i)$ on the diagonal of the tolerance (`--three-way`) | diagonal 1 |
+| `--symmetrize` | `quasi-equivalence`, `likeness` (`--asymmetric`) | `quasi-equivalence` |
+| `--proximity` | `auto`, `dissimilarity`, `similarity` (`--asymmetric`) | `auto` |
 | `--max-nodes` | node budget of the combination search | 500 000 000 |
 | `--top` | number of allotments reported | 200 |
 | `--format`, `--output` | `table`, `json`, `csv`; output file | `table`, stdout |
@@ -161,9 +185,12 @@ An option that the chosen algorithm does not use is an error, not a silent no-op
 unknown algorithm, distance, normalisation, criterion, operator or format name. Exit codes:
 0 — an allotment was found, 2 — invalid input or options, 3 — no allotment exists.
 Numbers are read and written with a decimal point on every system locale. Object numbers in
-the output are 0-based.
+the output of `cluster` are 0-based; the other commands number the objects from 1 and
+show their names when the file has them.
 
 To reproduce the setting of the monograph, use `--distance squared-euclidean --normalize max --accuracy 0.00001`.
+With `--interval`, `--fuzzy-numbers` and `--asymmetric` the options on attribute distances
+(`--distance`, `--normalize`, `--minkowski-p`) are errors, and so are the intuitionistic algorithms.
 
 The intuitionistic algorithms do not use `--distance`, `--normalize`, `--criterion` and
 `--accuracy`. Their table has an extra `Beta` column and the criterion $F_{IFS}$; the best line
@@ -208,6 +235,79 @@ the relation of Hung, Lee and Fuh (`--input datasets/hung_ifs_membership.csv --n
 datasets/hung_ifs_nonmembership.csv`) `dpaifc` with `order-free` gives five clusters at
 $(0.8, 0.1)$, $Q_{IFS} = 4.5667$; the frontier has $(0.1, 0.1)$ and $(0.8, 0.2)$, both with five
 clusters, the pairs at which the two printed scan orders stop.
+
+#### Other kinds of input
+
+Each of these options replaces the attribute data: the file is read, a fuzzy tolerance matrix is
+built from it, and the chosen algorithm runs on that matrix as with `--matrix`.
+
+| Option | File | Tolerance |
+|--------|------|-----------|
+| `--interval` | one row per object, two numeric columns per attribute, the lower and the upper bound, for example `name,gravity_lo,gravity_hi,iodine_lo,iodine_hi`; the first text column holds the object names | a measure between interval-valued fuzzy sets on the jointly scaled bounds (`--interval-measure`, `--lambda`, `--interval-scaling`) |
+| `--fuzzy-numbers` | one row per object, several columns per attribute named `attribute_suffix`: `_m,_a,_b` (triangular, LR-type), `_ml,_mr,_a,_b` (trapezoidal, LR-type interval) or `_m,_sigma` (Gaussian); one kind in a file, detected from the suffixes | $1-D/\max D$ with the averaged squared distance of Yang and Ko (`--shape-left`, `--shape-right`) |
+| `--three-way` | long format with a header: one row per object and situation, the object in the first column, the situation in the second (or named with `--object-column`, `--situation-column`), then one numeric column per attribute; every object in every situation | $1-d$ with a generalised distance (`--distance hamming \| euclidean \| squared-euclidean`) of the normalised data (`--normalize`, default `minmax`) |
+| `--asymmetric` | a square matrix of non-negative proximities, asymmetric, with an optional header and a column of names | the quasi-equivalence or the likeness of the weak preference relation obtained by normalising by the maximum and, for dissimilarities, complementing (`--symmetrize`, `--proximity`) |
+
+```bash
+mfuzzy cluster --algorithm dafc --clusters 2 --interval --input datasets/ichino_oils_interval.csv
+mfuzzy cluster --algorithm dafc --clusters 3 --three-way --input datasets/sato_sato_threeway.csv
+mfuzzy cluster --algorithm dpafc --asymmetric --input datasets/children_dislike.csv
+mfuzzy cluster --algorithm dafc-tc --fuzzy-numbers --input datasets/yang_ko_vectors.csv
+```
+
+The first line gives two clusters at $\alpha^* = 0.8185$ with the typical points $x_2$ and $x_8$;
+the second three fully separated clusters of 3, 7 and 28 objects at $\alpha^* = 0.9312$; the
+third five fully separated clusters at $\alpha = 0.6667$.
+
+#### Sub-commands for interval-valued data, large data and preference relations
+
+All of them take `--format table|json` and `--output <file>`; the exit code is 2 for invalid input
+and 3 when no allotment exists. Objects are numbered from 1.
+
+| Command | Options | Output |
+|---------|---------|--------|
+| `interval-stability` | `--input`, `--bound-normalization separate\|joint`, `--interval-scaling`, `--leap ratio\|difference`, `--snorm max\|probsum\|boundedsum` | the type of the structure (stable, quasi-stable, unstable); for the lower and the upper bounds the threshold, the number of clusters, the classes and the prototypes; the possibility of every number of clusters and the plausible numbers |
+| `interval-structure` | the options above and `--interval-measure`, `--lambda`, `--validity qmf\|lmf\|msc`, `--validity-direction max\|min`, `--clusters 2,3,4` | the candidates (number of clusters, threshold, criterion, validity, unique, admissible) and the selected allotment |
+| `project-paths` | the options of `interval-structure` and `--select density\|lmf\|qmf` | the indices of fuzziness and the density of every cluster of paths and the selected paths |
+| `reduce --algorithm <key>` | the options of `cluster` that the key needs (`--clusters`, `--alpha`, `--opening`, `--intersections`, `--min-size`, `--max-size`, `--taga`, `--criterion`, `--accuracy`, `--max-nodes`, `--top`), `--representatives N`, `--partition labels.csv`, `--no-reduce`, `--kmeans-restarts 10`, `--kmeans-seed 0`, `--kmeans-normalization none\|minmax\|max`, `--format table\|json\|csv` | the number of representatives and the allotment of all objects; external validation when the file has labels |
+| `preference` | `--input`, `--weights w1,w2,…`, `--tie-tolerance` | the Kuzmin distances, the tolerance, the allotment of the relations and its typical relations, the index of fuzziness of every relation, the selected relation(s), the non-dominated set, the ranking and the best alternative(s) |
+
+`reduce --algorithm` is the reduction of large data sets: the objects are partitioned into $\lfloor\sqrt{n}\rfloor$ classes by
+k-means (or into the classes of `--partition`), every class becomes an interval vector of the
+minima and maxima of the attributes, the interval vectors are clustered by the chosen algorithm,
+and every object takes the memberships of its class. `--no-reduce` makes every object its own class. The options
+`--distance` and `--normalize` do not apply: the tolerance between the interval vectors is built from their bounds.
+The file of `preference` has the header `expert,alternative,a1,…,an` and $n$ rows per expert: the
+expert, the first argument $a_i$ and the degrees $\mu(a_i, a_1), \dots, \mu(a_i, a_n)$. With `--weights`
+(one per relation of the file) the selected relations are aggregated with those weights, renormalised
+over the selected ones; without it they have equal weights.
+
+```bash
+mfuzzy interval-stability --input datasets/ichino_oils_interval.csv
+mfuzzy interval-structure --input datasets/ichino_oils_interval.csv --validity qmf
+mfuzzy project-paths --input datasets/project_paths_interval.csv --select density
+mfuzzy reduce --input datasets/iris_labeled.csv --algorithm dafc --clusters 3
+mfuzzy preference --input datasets/preference_six_relations.csv
+```
+
+The oil data are of the unstable type (lower bounds: 2 clusters at 0.7900, upper bounds: 3 clusters
+at 0.9496; plausible numbers 2, 3, 4) and the technique selects two clusters ($V_{QMF} = 0.4568$).
+The first path is selected under each of the three rules. The six relations fall into
+$\{R_1, R_2, R_3\}$ and $\{R_4, R_5, R_6\}$ with the typical relations $R_1$ and $R_4$; $R_1$ is
+selected and $a_3$ is the best alternative with degree 0.8. On Iris, `reduce` reports 12 representatives.
+
+The examples for the transitive opening and for partial supervision:
+
+```bash
+mfuzzy cluster --algorithm dafc-to --input datasets/sneath_sokal.csv --normalize max --distance squared-euclidean
+mfuzzy cluster --algorithm dafc-ps --clusters 2 --input datasets/yang_wu.csv --normalize max \
+    --distance squared-euclidean --accuracy 0.00001 --label 1:1.0 --label 9:1.0
+mfuzzy cluster --algorithm daifc-ps --clusters 2 --input datasets/cars5_ifs.csv --scan-order beta-outer \
+    --label 1:1.0:0.0 --label 5:1.0:0.0
+```
+
+They give two classes of 8 at $\alpha^* = 0.6450$ (typical points $x_2$ and $x_{14}$), two clusters sharing one
+object at $\alpha^* = 0.9266$, and $(\alpha, \beta) = (0.70, 0.25)$.
 
 ### Desktop workbench
 

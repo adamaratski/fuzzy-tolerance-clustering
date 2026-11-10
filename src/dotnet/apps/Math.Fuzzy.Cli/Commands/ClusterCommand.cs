@@ -5,13 +5,14 @@ namespace MathFuzzy.Cli.Commands;
 /// <summary>
 /// mfuzzy cluster --algorithm dafc --input data.csv --clusters 3 --distance euclidean --output results.json
 /// mfuzzy cluster --algorithm dpafc --input relation.csv --matrix
+/// mfuzzy cluster --algorithm dafc --clusters 2 --input oils.csv --interval
 /// </summary>
 public static class ClusterCommand
 {
     public static Command Build()
     {
-        var algorithm = new Option<string>("--algorithm") { Description = "Algorithm: dafc | dafc-u | dpafc | dafc-tc | dafc-tc-alpha | dpafc-tc | dafc-taga | dafc-taga-alpha | dpafc-taga | hafc-tc | hafc-taga | dpafc-dr | dpafc-tc-dr | dpafc-taga-dr | dpaifc | daifc | dpaifc-tc (intuitionistic fuzzy data)", Required = true };
-        var input     = new Option<FileInfo>("--input") { Description = "CSV file with attribute data (objects in rows), or with an n × n fuzzy tolerance matrix when --matrix is given", Required = true };
+        var algorithm = new Option<string>("--algorithm") { Description = "Algorithm: dafc | dafc-u | dpafc | dafc-tc | dafc-tc-alpha | dpafc-tc | dafc-taga | dafc-taga-alpha | dpafc-taga | hafc-tc | hafc-taga | dpafc-dr | dpafc-tc-dr | dpafc-taga-dr | dafc-to | dafc-to-alpha | dpafc-to | dafc-ps | dpaifc | daifc | dpaifc-tc | daifc-ps (intuitionistic fuzzy data)", Required = true };
+        var input     = new Option<FileInfo>("--input") { Description = "CSV file with attribute data (objects in rows); with --matrix an n × n fuzzy tolerance matrix; with --interval interval-valued data; with --fuzzy-numbers fuzzy-number data; with --three-way long-format three-way data; with --asymmetric a square asymmetric proximity matrix", Required = true };
         var matrix    = new Option<bool>("--matrix") { Description = "The input file is a fuzzy tolerance matrix (values in [0, 1], symmetric), not attribute data" };
         var nonMember = new Option<FileInfo?>("--nonmembership") { Description = "Intuitionistic algorithms: CSV file with the non-membership matrix; --input is then the membership matrix. Without it --input is intuitionistic attribute data (columns in pairs: membership, non-membership)" };
         var scanOrder = new Option<string?>("--scan-order") { Description = "Intuitionistic algorithms: order of the scan over the threshold pairs, beta-inner (default) | beta-outer; order-free examines all pairs and returns the best allotment among the least number of clusters (dpaifc, dpaifc-tc)" };
@@ -19,8 +20,22 @@ public static class ClusterCommand
         var label     = new Option<string[]>("--label") { Description = "Algorithms with partial supervision (dafc-ps, daifc-ps): a labelled object as object:y or, for intuitionistic data, object:y:f (objects numbered from 1); repeat the option for every labelled object; append @k to put several objects into class k" };
         var psRule    = new Option<string?>("--ps-rule") { Description = "daifc-ps: when the intersection bound is raised, step10 (default, as printed) | full-scan" };
         var ifsMeasure = new Option<string?>("--ifs-measure") { Description = "Intuitionistic algorithms on attribute data: similarity measure, hamming (default) | euclidean" };
-        var clusters  = new Option<int?>("--clusters") { Description = "Number of clusters c (dafc, daifc: required; dafc-tc: optional)" };
-        var alpha     = new Option<double?>("--alpha") { Description = "Threshold α in [0, 1] (dafc: search this level only; dafc-tc-alpha, dafc-taga-alpha: least admissible threshold)" };
+        var interval  = new Option<bool>("--interval") { Description = "The input file is interval-valued data: columns name_lo, name_hi for every attribute" };
+        var fuzzyNum  = new Option<bool>("--fuzzy-numbers") { Description = "The input file is fuzzy-number data: columns name_m, name_a, name_b (triangular), name_ml, name_mr, name_a, name_b (trapezoidal) or name_m, name_sigma (Gaussian)" };
+        var threeWay  = new Option<bool>("--three-way") { Description = "The input file is long-format three-way data: one row per object and situation" };
+        var asymmetric = new Option<bool>("--asymmetric") { Description = "The input file is a square asymmetric proximity matrix (non-negative entries)" };
+        var intervalMeasure = new Option<string?>("--interval-measure") { Description = "--interval: sqeuclid (default) | euclid | bb | hausdorff | juyuan | sqeuclid-matching | euclid-matching" };
+        var lambda    = new Option<double?>("--lambda") { Description = "--interval with juyuan: exponent λ ≥ 1 (default 2)" };
+        var intervalScaling = new Option<string?>("--interval-scaling") { Description = "--interval: scaling of the bounds, minmax (default) | max | none" };
+        var shapeLeft = new Option<double?>("--shape-left") { Description = "--fuzzy-numbers: shape integral l of the left shape function (default 0.5, linear)" };
+        var shapeRight = new Option<double?>("--shape-right") { Description = "--fuzzy-numbers: shape integral r of the right shape function (default 0.5, linear)" };
+        var objectColumn = new Option<string?>("--object-column") { Description = "--three-way: name of the column with the object identifier (default: the first column)" };
+        var situationColumn = new Option<string?>("--situation-column") { Description = "--three-way: name of the column with the situation (default: the second column)" };
+        var keepSelf  = new Option<bool>("--keep-self-similarity") { Description = "--three-way: keep 1 − d(x_i, x_i) on the diagonal of the tolerance instead of 1" };
+        var symmetrize = new Option<string?>("--symmetrize") { Description = "--asymmetric: quasi-equivalence (default) | likeness" };
+        var proximity = new Option<string?>("--proximity") { Description = "--asymmetric: auto (default) | dissimilarity | similarity" };
+        var clusters  = new Option<int?>("--clusters") { Description = "Number of clusters c (dafc, daifc, dafc-ps, daifc-ps: required; dafc-tc: optional)" };
+        var alpha     = new Option<double?>("--alpha") { Description = "Threshold α in [0, 1] (dafc: search this level only; dafc-tc-alpha, dafc-taga-alpha, dafc-to-alpha: least admissible threshold)" };
         var distance  = new Option<string>("--distance") { Description = "Distance: euclidean | squared-euclidean | manhattan | chebyshev | minkowski | cosine | hamming", DefaultValueFactory = _ => "euclidean" };
         var accuracy  = new Option<double?>("--accuracy") { Description = "Accuracy threshold ε: round the tolerance matrix to multiples of ε before building levels (e.g. 0.00001)" };
         var norm      = new Option<string>("--normalize") { Description = "Normalization: minmax | max | none", DefaultValueFactory = _ => "minmax" };
@@ -39,7 +54,9 @@ public static class ClusterCommand
         var cmd = new Command("cluster", "Run a fuzzy clustering algorithm")
         {
             algorithm, input, matrix, clusters, alpha, distance, norm, minkP, accuracy, taga, criterion,
-            inters, minSize, maxSize, maxNodes, top, rules, output, format, nonMember, scanOrder, ifsMeasure, opening, label, psRule
+            inters, minSize, maxSize, maxNodes, top, rules, output, format, nonMember, scanOrder, ifsMeasure, opening, label, psRule,
+            interval, fuzzyNum, threeWay, asymmetric, intervalMeasure, lambda, intervalScaling,
+            shapeLeft, shapeRight, objectColumn, situationColumn, keepSelf, symmetrize, proximity
         };
         cmd.SetAction((parse, ct) =>
         {
@@ -50,6 +67,18 @@ public static class ClusterCommand
             if (Given(norm))     matrixBuildOptions.Add("--normalize");
             if (Given(minkP))    matrixBuildOptions.Add("--minkowski-p");
             if (Given(accuracy)) matrixBuildOptions.Add("--accuracy");
+
+            var givenNames = cmd.Options.Where(option => Given(option)).Select(option => option.Name).ToHashSet();
+            var special = new SpecialInputOptions(
+                Interval: parse.GetValue(interval), FuzzyNumbers: parse.GetValue(fuzzyNum),
+                ThreeWay: parse.GetValue(threeWay), Asymmetric: parse.GetValue(asymmetric),
+                IntervalMeasure: parse.GetValue(intervalMeasure), Lambda: parse.GetValue(lambda),
+                IntervalScaling: parse.GetValue(intervalScaling),
+                ShapeLeft: parse.GetValue(shapeLeft), ShapeRight: parse.GetValue(shapeRight),
+                ObjectColumn: parse.GetValue(objectColumn), SituationColumn: parse.GetValue(situationColumn),
+                KeepSelfSimilarity: parse.GetValue(keepSelf),
+                Symmetrize: parse.GetValue(symmetrize), Proximity: parse.GetValue(proximity),
+                GivenOptions: givenNames);
 
             return ClusterHandler.Run(new ClusterRequest(
                 Algorithm:      parse.GetValue(algorithm)!,
@@ -78,7 +107,8 @@ public static class ClusterCommand
                 Opening:        parse.GetValue(opening),
                 Labels:         parse.GetValue(label) ?? [],
                 SupervisionRule: parse.GetValue(psRule),
-                MaxNodesGiven:  Given(maxNodes)), ct);
+                MaxNodesGiven:  Given(maxNodes),
+                Special:        special), ct);
         });
         return cmd;
     }
@@ -91,4 +121,5 @@ internal sealed record ClusterRequest(
     string Criterion, int? Intersections, int MinSize, int MaxSize, long MaxNodes, int Top,
     FileInfo? Rules, FileInfo? Output, string Format, IReadOnlyList<string> MatrixBuildOptionsGiven,
     FileInfo? NonMembership = null, string? ScanOrder = null, string? IntuitionisticMeasure = null, bool MaxNodesGiven = false,
-    string? Opening = null, string[]? Labels = null, string? SupervisionRule = null);
+    string? Opening = null, string[]? Labels = null, string? SupervisionRule = null,
+    SpecialInputOptions? Special = null);

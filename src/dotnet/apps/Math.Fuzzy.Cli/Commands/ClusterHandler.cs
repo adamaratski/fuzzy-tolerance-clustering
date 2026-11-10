@@ -27,6 +27,8 @@ internal static class ClusterHandler
         string format = request.Format.ToLowerInvariant();
         if (format is not ("table" or "json" or "csv"))
             throw new ArgumentException($"Unknown format: '{request.Format}'. Valid names: table, json, csv");
+        var special = request.Special;
+        if (special is not null) SpecialInputs.Validate(request, special);
         if (request.InputIsMatrix && request.MatrixBuildOptionsGiven.Count > 0)
             throw new ArgumentException(
                 $"{string.Join(", ", request.MatrixBuildOptionsGiven)}: such options say how a tolerance matrix is built from " +
@@ -91,6 +93,10 @@ internal static class ClusterHandler
                 : AlgorithmFactory.RunIntuitionistic(
                       request.Algorithm, IntuitionisticDataMatrix.FromCsv(request.Input.FullName), options, ct);
         }
+        else if (special is { Any: true })
+        {
+            results = AlgorithmFactory.Run(request.Algorithm, SpecialInputs.BuildTolerance(request, special), options, ct);
+        }
         else if (request.InputIsMatrix)
         {
             var tolerance = FuzzyToleranceMatrix.FromCsv(request.Input.FullName);
@@ -120,24 +126,7 @@ internal static class ClusterHandler
             return;
         }
 
-        bool hierarchy = request.Algorithm.Trim().StartsWith("hafc-", StringComparison.OrdinalIgnoreCase);
-
-        // External validation of the best result when labels are available (flat algorithms only).
-        ExternalValidationResult? validation = null;
-        if (file is { HasLabels: true } && !hierarchy)
-            validation = ExternalValidator.Compute(results[0], file.TrueLabels!, file.ClassNames!);
-
-        // For a hierarchy every level is validated against the labels.
-        IReadOnlyList<ExternalValidationResult>? levelValidation = null;
-        if (file is { HasLabels: true } && hierarchy)
-            levelValidation = [.. results.Select(level => ExternalValidator.Compute(level, file.TrueLabels!, file.ClassNames!))];
-
-        string rendered = format switch
-        {
-            "json" => RenderJson(results, validation, levelValidation, diagnostics),
-            "csv"  => RenderCsv(results),
-            _      => hierarchy ? RenderHierarchy(results) : RenderTable(results, validation, diagnostics)
-        };
+        string rendered = Render(format, request.Algorithm, results, file, diagnostics);
 
         if (request.Output is not null)
         {
@@ -156,6 +145,29 @@ internal static class ClusterHandler
             await File.WriteAllTextAsync(request.Rules.FullName, FisJson.Serialize(system), ct);
             await Console.Error.WriteLineAsync($"Wrote the inference system ({system.Rules.Count} rules) to {request.Rules.FullName}");
         }
+    }
+
+    /// <summary>Renders the results in the chosen format, with the external validation when the data file has labels.</summary>
+    internal static string Render(string format, string algorithm, IReadOnlyList<ClusterResult> results, DataFile? file, SearchDiagnostics diagnostics)
+    {
+        bool hierarchy = algorithm.Trim().StartsWith("hafc-", StringComparison.OrdinalIgnoreCase);
+
+        // External validation of the best result when labels are available (flat algorithms only).
+        ExternalValidationResult? validation = null;
+        if (file is { HasLabels: true } && !hierarchy)
+            validation = ExternalValidator.Compute(results[0], file.TrueLabels!, file.ClassNames!);
+
+        // For a hierarchy every level is validated against the labels.
+        IReadOnlyList<ExternalValidationResult>? levelValidation = null;
+        if (file is { HasLabels: true } && hierarchy)
+            levelValidation = [.. results.Select(level => ExternalValidator.Compute(level, file.TrueLabels!, file.ClassNames!))];
+
+        return format switch
+        {
+            "json" => RenderJson(results, validation, levelValidation, diagnostics),
+            "csv"  => RenderCsv(results),
+            _      => hierarchy ? RenderHierarchy(results) : RenderTable(results, validation, diagnostics)
+        };
     }
 
     private static string RenderTable(

@@ -34,6 +34,25 @@ Algorithms
   Q = Σ (mean membership − mean non-membership) over the clusters is the result. The thresholds
   of an allotment are its own. If the node budget runs out, no allotment is returned.
 
+- **Transitive opening** (`dafc-to`, `dafc-to-alpha`, `dpafc-to`; option `--opening
+  complete-linkage|single-linkage-order`): the closure-based algorithms with a transitive
+  opening of the tolerance in place of the closure.
+- **Partial supervision**: D-AFC-PS(c) (`dafc-ps`) and D-AIFC-PS(c) (`daifc-ps`); the labelled
+  objects are given with `--label object:y[:f][@class]` (objects numbered from 1), the rule for
+  raising the intersection bound of `daifc-ps` with `--ps-rule step10|full-scan`.
+- **Interval-valued data**: tolerances from seven measures between interval-valued fuzzy sets,
+  the type of the clustering structure (stable, quasi-stable, unstable) with the plausible
+  numbers of clusters, the stable-structure technique and the selection of the paths of a
+  project network.
+- **Fuzzy-number, three-way and asymmetric data**: reading and the construction of the fuzzy
+  tolerance (triangular, trapezoidal and Gaussian fuzzy numbers; generalised distances of
+  three-way data; quasi-equivalence or likeness of an asymmetric proximity matrix).
+- **Large data sets**: reduction to interval-valued representatives by k-means or a given
+  partition, clustering of the representatives by any relational algorithm, memberships carried
+  over to the objects.
+- **Fuzzy preference relations**: Kuzmin distances, clustering of the relations, selection of
+  the most representative relation by the index of fuzziness and Orlovsky's non-domination method.
+
 Search
 - Closure-based algorithms (D-AFC-TC, D-AFC-TC(α), D-PAFC-TC) rank the allotments of a level
   class by class instead of enumerating combinations; ties between typical points are resolved
@@ -61,6 +80,15 @@ Command-line tool
   `thresholds` with `admissiblePairs` and `frontier`); an extra `Beta` column in the table, `β` and `w` in the best line, `beta` and
   `intersectionBound` in JSON. `--distance`, `--normalize`, `--criterion` and `--accuracy`
   are rejected for these algorithms.
+- Other kinds of input for `cluster`: `--interval` (with `--interval-measure`, `--lambda`,
+  `--interval-scaling`), `--fuzzy-numbers` (`--shape-left`, `--shape-right`), `--three-way`
+  (`--object-column`, `--situation-column`, `--keep-self-similarity`; `--distance` and `--normalize`
+  apply) and `--asymmetric` (`--symmetrize`, `--proximity`); at most one of them, `--matrix` and
+  `--nonmembership`. `--distance`, `--normalize` and `--minkowski-p` are rejected for the others.
+- New commands `interval-stability`, `interval-structure`, `project-paths` and `preference`;
+  `reduce --algorithm <key>` for large data (the former attribute selection stays as
+  `reduce --method`). All print a table or JSON (`--format`) and write to `--output`.
+- Options `--opening`, `--label` and `--ps-rule` of `cluster`.
 
 Desktop workbench
 - *Open data → Intuitionistic tolerance (μ and ν matrices)…* and *Intuitionistic attribute
@@ -73,10 +101,16 @@ Desktop workbench
 
 Data files
 - `hung_ifs_membership.csv`, `hung_ifs_nonmembership.csv`, `cars5_ifs.csv`, `cars10_ifs.csv`.
+- `ichino_oils_interval.csv`, `sato_jain_interval.csv`, `project_paths_interval.csv`,
+  `sato_sato_threeway.csv`, `children_dislike.csv`, `yang_ko_vectors.csv`, `yang_ko_30.csv`,
+  `preference_six_relations.csv`.
 
 Tests
 - 27 new tests for the intuitionistic algorithms; nine runs on intuitionistic data in
   `results/reproduce.py` (55 runs in all).
+- Six runs of the transitive opening, partial supervision and the interval, three-way and
+  asymmetric inputs in `results/reproduce.py` (61 runs in all). The test suite has 478 tests
+  (one skipped on purpose).
 
 Other
 - MATLAB / GNU Octave toolbox rewritten to follow the algorithms (D-AFC(c), D-PAFC, D-AFC-TC,

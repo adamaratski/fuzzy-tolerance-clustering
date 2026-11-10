@@ -52,6 +52,21 @@ Input of the intuitionistic algorithms D-PAIFC, D-AIFC(c) and D-PAIFC-TC. A tole
 | `cars5_ifs.csv` | 5 | 6 (pairs $\mu$, $\nu$) | Five cars described by six intuitionistic fuzzy attributes (columns `f1_mu,f1_nu,…,f6_mu,f6_nu`). Published example of the closure-based algorithm D-PAIFC-TC. |
 | `cars10_ifs.csv` | 10 | 6 (pairs $\mu$, $\nu$) | Ten cars described by the same six intuitionistic fuzzy attributes. Published example of D-PAIFC-TC: four clusters at $(\alpha, \beta) = (0.4833, 0.1667)$. |
 
+## Interval-valued, fuzzy-number, three-way, asymmetric and preference data
+
+Each file has its own kind of input of `mfuzzy cluster` (`--interval`, `--fuzzy-numbers`, `--three-way`, `--asymmetric`) or its own command; the formats are described in the [README](../README.md#other-kinds-of-input).
+
+| File | Objects | Attributes | Description and use |
+|---|---|---|---|
+| `ichino_oils_interval.csv` | 8 oils | 3 intervals (specific gravity, iodine value, saponification value) | The oil data of Ichino and Yaguchi (Viattchenin 2011, sec. 4.2); the objects are named. `cluster --interval`, `interval-stability`, `interval-structure`. |
+| `sato_jain_interval.csv` | 8 | 3 intervals | Artificial interval-valued data of Sato-Ilic and Jain (Viattchenin 2013): `x1`–`x4` have degenerate intervals. `cluster --interval`, `interval-structure`. |
+| `project_paths_interval.csv` | 4 paths | 10 activities (duration intervals, $[0, 0]$ for an activity not on the path) | The paths of a project network with interval-valued durations. `project-paths`, `interval-structure`. |
+| `sato_sato_threeway.csv` | 38 boys | 4 (height, weight, chest girth, sitting height) in 3 situations (ages) | Sato–Sato data in long format, 114 rows (one per boy and age). `cluster --three-way`. |
+| `children_dislike.csv` | 16 children | $16 \times 16$ asymmetric matrix | Children relationship data (Viattchenin 2013, sec. 4.3): integer entries 0–6 and a zero diagonal, read as dissimilarities. `cluster --asymmetric`. |
+| `yang_ko_vectors.csv` | 10 | 3 triangular fuzzy numbers (`v1_m,v1_a,v1_b,…`) | The ten vectors of triangular fuzzy numbers of Yang and Ko (printed table 3.5, read as 10 × 3). `cluster --fuzzy-numbers`. |
+| `yang_ko_30.csv` | 30 | 1 triangular fuzzy number (`value_m,value_a,value_b`) | The thirty numbers V1…V30 of the same table, one attribute. `cluster --fuzzy-numbers`. The published clustering of these data is not reproduced from the printed table. |
+| `preference_six_relations.csv` | 6 relations | 4 alternatives | Fuzzy preference relations of six experts (header `expert,alternative,a1,…,a4`, four rows per expert). `preference`. |
+
 ## Recommended algorithm → dataset pairings
 
 | Algorithm | Recommended datasets |
@@ -66,6 +81,12 @@ Input of the intuitionistic algorithms D-PAIFC, D-AIFC(c) and D-PAIFC-TC. A tole
 | D-PAFC-DR (dimension reduction) | `wine` (13D), `glass` (9D) |
 | D-PAIFC, D-AIFC(c) | `hung_ifs_membership` with `hung_ifs_nonmembership` |
 | D-PAIFC-TC | `cars5_ifs`, `cars10_ifs` |
+| D-AFC-TO, D-PAFC-TO | `sneath_sokal` |
+| D-AFC-PS(c) | `yang_wu` (`--label 1:1.0 --label 9:1.0`) |
+| D-AIFC-PS(c) | `cars5_ifs` (`--label 1:1.0:0.0 --label 5:1.0:0.0`) |
+| interval-valued data | `ichino_oils_interval`, `sato_jain_interval`, `project_paths_interval` |
+| three-way, asymmetric, fuzzy-number data | `sato_sato_threeway`, `children_dislike`, `yang_ko_vectors` |
+| fuzzy preference relations | `preference_six_relations` |
 
 ## Additional labeled benchmarks (added 2026-10-27)
 

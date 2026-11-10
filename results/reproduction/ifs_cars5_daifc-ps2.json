@@ -1,0 +1,1 @@
+{"results":[{"clusterCount":2,"alpha":0.7,"score":0.8291666666666667,"distTiebreaker":null,"criterion":"F_IFS","centers":[0,4],"clusters":[[0,1,2,3],[4]],"beta":0.25,"intersectionBound":0}],"search":{"nodesVisited":5,"budgetExhausted":false},"resultCount":1}

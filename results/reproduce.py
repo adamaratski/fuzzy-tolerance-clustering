@@ -93,6 +93,14 @@ runs = [
     ("ifs_cars5_dpaifc_order-free",   "cars5_ifs.csv",    "dpaifc",    ["--scan-order", "order-free"]),
     ("ifs_cars10_dpaifc_order-free",  "cars10_ifs.csv",   "dpaifc",    ["--scan-order", "order-free"]),
     ("ifs_cars10_dpaifc-tc_order-free", "cars10_ifs.csv", "dpaifc-tc", ["--scan-order", "order-free"]),
+    # transitive opening (TO) and partial supervision (PS); objects of --label are numbered from 1
+    ("sneath_dafc-to_sqeuclid_max",   "sneath_sokal.csv", "dafc-to", MONO),
+    ("yangwu_dafc-ps2_sqeuclid_max_1e-5", "yang_wu.csv",  "dafc-ps", ["--clusters", "2", "--accuracy", "0.00001", "--label", "1:1.0", "--label", "9:1.0"] + MONO),
+    ("ifs_cars5_daifc-ps2",           "cars5_ifs.csv",    "daifc-ps", ["--clusters", "2", "--scan-order", "beta-outer", "--label", "1:1.0:0.0", "--label", "5:1.0:0.0"]),
+    # other kinds of input: the flag that names the kind (--interval, --three-way, --asymmetric, …) is part of the options
+    ("oils_dafc2_interval",           "ichino_oils_interval.csv", "dafc", ["--clusters", "2", "--interval"]),
+    ("sato_dafc3_threeway",           "sato_sato_threeway.csv",   "dafc", ["--clusters", "3", "--three-way"]),
+    ("children_dpafc_asymmetric",     "children_dislike.csv",     "dpafc", ["--asymmetric"]),
 ]
 
 lines = ["# Reproduction runs", "",

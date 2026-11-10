@@ -59,3 +59,9 @@ Each row is the top-ranked allotment of one command-line run; `overlap` is the n
 | ifs_cars5_dpaifc_order-free | 5 | 2 | 0.71667, β 0.10000 | 1.76250 | [2, 5] | [4, 1] | 0 | — | — | — | — | 0.1 |
 | ifs_cars10_dpaifc_order-free | 10 | 4 | 0.53333, β 0.23333 | 3.19444 | [1, 3, 6, 10] | [6, 1, 1, 2] | 0 | — | — | — | — | 0.1 |
 | ifs_cars10_dpaifc-tc_order-free | 10 | 2 | 0.51667, β 0.18333 | 1.48148 | [1, 6] | [9, 1] | 0 | — | — | — | — | 0.1 |
+| sneath_dafc-to_sqeuclid_max | 16 | 2 | 0.64497 | 0.37652 | [2, 14] | [8, 8] | 0 | — | — | — | — | — |
+| yangwu_dafc-ps2_sqeuclid_max_1e-5 | 16 | 2 | 0.92663 | 0.12779 | [1, 9] | [9, 8] | 1 | — | — | — | — | — |
+| ifs_cars5_daifc-ps2 | 5 | 2 | 0.70000, β 0.25000 | 0.82917 | [1, 5] | [4, 1] | 0 | — | — | — | — | — |
+| oils_dafc2_interval | 8 | 2 | 0.81850 | 0.18666 | [2, 8] | [5, 3] | 0 | — | — | — | — | — |
+| sato_dafc3_threeway | 38 | 3 | 0.93120 | 0.10124 | [14, 20, 31] | [3, 7, 28] | 0 | — | — | — | — | — |
+| children_dpafc_asymmetric | 16 | 5 | 0.66667 | 1.11111 | [2, 5, 9, 11, 13] | [3, 4, 4, 2, 3] | 0 | — | — | — | — | — |

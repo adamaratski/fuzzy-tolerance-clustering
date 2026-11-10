@@ -17,5 +17,9 @@ root.Subcommands.Add(ReduceCommand.Build());
 root.Subcommands.Add(InferCommand.Build());
 root.Subcommands.Add(SizeCommand.BuildSize());
 root.Subcommands.Add(SizeCommand.BuildBounds());
+root.Subcommands.Add(IntervalStabilityCommand.Build());
+root.Subcommands.Add(IntervalStructureCommand.Build());
+root.Subcommands.Add(ProjectPathsCommand.Build());
+root.Subcommands.Add(PreferenceCommand.Build());
 
 return await root.Parse(args).InvokeAsync();
