@@ -61,5 +61,15 @@ public sealed record DAfcOptions(
     /// <summary>Sentinel for <see cref="MaxIntersections"/>: w := 0 with automatic increment.</summary>
     public const int AutoIntersections = -1;
 
+    /// <summary>
+    /// Optional admissibility test (centres, member sets) → admissible, applied to every
+    /// allotment that satisfies the coverage, separation and power conditions, before it is
+    /// scored. An allotment it rejects is not in the class of possible solutions B(c), so with
+    /// <see cref="AutoIntersections"/> w is increased while no admissible allotment exists.
+    /// Called from worker threads: it must be thread-safe and must not modify its arguments.
+    /// Used by D-AFC-PS(c) for the conditions on the labelled objects.
+    /// </summary>
+    public Func<int[], int[][], bool>? AllotmentFilter { get; init; }
+
     public int EffectiveMaxPower(int n) => MaxClusterPower > 0 ? MaxClusterPower : n;
 }

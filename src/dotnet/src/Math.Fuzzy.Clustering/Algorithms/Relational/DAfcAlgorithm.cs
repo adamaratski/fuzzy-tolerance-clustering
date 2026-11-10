@@ -620,6 +620,9 @@ public sealed class DAfcAlgorithm(
             && CountIntersections(memberSets, n) > context.MaxIntersections)
             return;
 
+        if (options.AllotmentFilter is { } admissible && !admissible(centers, memberSets))
+            return;
+
         double score;
         if (context.Decomposable is { } decomposable)
         {
