@@ -58,6 +58,11 @@ internal static class Drawing
             LegendBackground = OxyColor.FromAColor(230, OxyColors.White),
             LegendBorder = Grid,
             LegendFontSize = 12,
+            LegendSymbolLength = 18,
+            LegendSymbolMargin = 8,
+            LegendItemSpacing = 14,
+            LegendLineSpacing = 3,
+            LegendPadding = 10,
         });
 
     private static OxyColor Colour(int index) => Palette[index % Palette.Length];
@@ -138,7 +143,7 @@ internal static class Drawing
             var members = allotment.MemberSets[cluster];
             var series = new ScatterSeries
             {
-                Title = $"cluster {cluster + 1} ({members.Length})",
+                Title = $"cluster {cluster + 1}: {members.Length} {(members.Length == 1 ? "object" : "objects")}",
                 MarkerType = Markers[cluster % Markers.Length], MarkerSize = labelObjects ? 5.5 : 3.6,
                 MarkerFill = Colour(cluster), MarkerStroke = Colour(cluster), MarkerStrokeThickness = 1.4,
             };
@@ -159,8 +164,9 @@ internal static class Drawing
 
         var typical = new ScatterSeries
         {
-            Title = "typical points", MarkerType = MarkerType.Circle, MarkerSize = labelObjects ? 10 : 8,
+            MarkerType = MarkerType.Circle, MarkerSize = labelObjects ? 10 : 8,
             MarkerFill = OxyColors.Transparent, MarkerStroke = OxyColors.Black, MarkerStrokeThickness = 1.8,
+            RenderInLegend = false,
         };
         foreach (int center in allotment.Centers)
             typical.Points.Add(new ScatterPoint(data[center, columnX], data[center, columnY]));
@@ -177,6 +183,13 @@ internal static class Drawing
         }
         if (allotment.ClusterCount <= 7)
         {
+            // legend entry of the typical points: a ring of the size of the other legend symbols
+            // (the rings in the plot are larger, so that they surround the cluster markers)
+            model.Series.Add(new ScatterSeries
+            {
+                Title = "typical point", MarkerType = MarkerType.Circle, MarkerSize = labelObjects ? 5.5 : 4.5,
+                MarkerFill = OxyColors.Transparent, MarkerStroke = OxyColors.Black, MarkerStrokeThickness = 1.6,
+            });
             AddLegend(model, LegendPosition.RightTop);
             model.Legends[0].LegendPlacement = LegendPlacement.Outside;
         }
