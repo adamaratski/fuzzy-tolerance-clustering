@@ -15,6 +15,7 @@ public static class ClusterCommand
         var matrix    = new Option<bool>("--matrix") { Description = "The input file is a fuzzy tolerance matrix (values in [0, 1], symmetric), not attribute data" };
         var nonMember = new Option<FileInfo?>("--nonmembership") { Description = "Intuitionistic algorithms: CSV file with the non-membership matrix; --input is then the membership matrix. Without it --input is intuitionistic attribute data (columns in pairs: membership, non-membership)" };
         var scanOrder = new Option<string?>("--scan-order") { Description = "Intuitionistic algorithms: order of the scan over the threshold pairs, beta-inner (default) | beta-outer; order-free examines all pairs and returns the best allotment among the least number of clusters (dpaifc, dpaifc-tc)" };
+        var opening   = new Option<string?>("--opening") { Description = "TO algorithms: how the transitive opening is computed, complete-linkage (default) | single-linkage-order" };
         var ifsMeasure = new Option<string?>("--ifs-measure") { Description = "Intuitionistic algorithms on attribute data: similarity measure, hamming (default) | euclidean" };
         var clusters  = new Option<int?>("--clusters") { Description = "Number of clusters c (dafc, daifc: required; dafc-tc: optional)" };
         var alpha     = new Option<double?>("--alpha") { Description = "Threshold α in [0, 1] (dafc: search this level only; dafc-tc-alpha, dafc-taga-alpha: least admissible threshold)" };
@@ -36,7 +37,7 @@ public static class ClusterCommand
         var cmd = new Command("cluster", "Run a fuzzy clustering algorithm")
         {
             algorithm, input, matrix, clusters, alpha, distance, norm, minkP, accuracy, taga, criterion,
-            inters, minSize, maxSize, maxNodes, top, rules, output, format, nonMember, scanOrder, ifsMeasure
+            inters, minSize, maxSize, maxNodes, top, rules, output, format, nonMember, scanOrder, ifsMeasure, opening
         };
         cmd.SetAction((parse, ct) =>
         {
@@ -72,6 +73,7 @@ public static class ClusterCommand
                 NonMembership:  parse.GetValue(nonMember),
                 ScanOrder:      parse.GetValue(scanOrder),
                 IntuitionisticMeasure: parse.GetValue(ifsMeasure),
+                Opening:        parse.GetValue(opening),
                 MaxNodesGiven:  Given(maxNodes)), ct);
         });
         return cmd;
@@ -84,4 +86,5 @@ internal sealed record ClusterRequest(
     string Distance, string Normalize, double MinkowskiP, double? Accuracy, string? Taga,
     string Criterion, int? Intersections, int MinSize, int MaxSize, long MaxNodes, int Top,
     FileInfo? Rules, FileInfo? Output, string Format, IReadOnlyList<string> MatrixBuildOptionsGiven,
-    FileInfo? NonMembership = null, string? ScanOrder = null, string? IntuitionisticMeasure = null, bool MaxNodesGiven = false);
+    FileInfo? NonMembership = null, string? ScanOrder = null, string? IntuitionisticMeasure = null, bool MaxNodesGiven = false,
+    string? Opening = null);

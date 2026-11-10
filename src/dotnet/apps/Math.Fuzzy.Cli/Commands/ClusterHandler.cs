@@ -74,7 +74,8 @@ internal static class ClusterHandler
             MaxResults:       request.Top,
             Diagnostics:      diagnostics,
             ThresholdScanOrder:    request.ScanOrder,
-            IntuitionisticMeasure: request.IntuitionisticMeasure);
+            IntuitionisticMeasure: request.IntuitionisticMeasure,
+            OpeningMethod:         request.Opening);
         AlgorithmFactory.EnsureOptionsApply(request.Algorithm, options);
 
         DataFile? file = null;

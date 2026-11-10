@@ -17,7 +17,8 @@ namespace MathFuzzy.Clustering;
 /// <summary>
 /// Resolves clustering algorithm instances from string keys.
 /// Accepted keys (case-insensitive): dafc, dafc-u, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc,
-/// dafc-taga, dafc-taga-alpha, dpafc-taga, hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr;
+/// dafc-taga, dafc-taga-alpha, dpafc-taga, dafc-to, dafc-to-alpha, dpafc-to, hafc-tc, hafc-taga,
+/// dpafc-dr, dpafc-tc-dr, dpafc-taga-dr;
 /// for intuitionistic fuzzy data (see <see cref="RunIntuitionistic(string, IntuitionisticToleranceMatrix, AlgorithmOptions, CancellationToken)"/>):
 /// dpaifc, daifc, dpaifc-tc.
 /// </summary>
@@ -25,6 +26,7 @@ public static class AlgorithmFactory
 {
     private const string ValidKeys =
         "dafc, dafc-u, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc, dafc-taga, dafc-taga-alpha, dpafc-taga, " +
+        "dafc-to, dafc-to-alpha, dpafc-to, " +
         "hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr, dpaifc, daifc, dpaifc-tc";
 
     private static readonly string[] AllKeys = ValidKeys.Split(", ");
@@ -220,6 +222,23 @@ public static class AlgorithmFactory
                 return new DPafcTagaAlgorithm(builder, BuildTaga(options.TagaOperator), criterion, minPower, maxPower, options.MaxResults)
                     .Run(tolerance, normalizedData, ct);
 
+            case "dafc-to":
+                return new DAfcToAlgorithm(builder, BuildOpening(options.OpeningMethod), criterion, minPower, maxPower, options.MaxResults)
+                    .Run(tolerance, normalizedData, ct);
+
+            case "dafc-to-alpha":
+            {
+                double leastAlpha = options.UserAlpha
+                    ?? throw new ArgumentException("D-AFC-TO(α) needs the least threshold (--alpha).");
+                return new DAfcToAlgorithm(builder, BuildOpening(options.OpeningMethod), criterion, minPower, maxPower,
+                                           options.MaxResults, leastAlpha)
+                    .Run(tolerance, normalizedData, ct);
+            }
+
+            case "dpafc-to":
+                return new DPafcToAlgorithm(builder, BuildOpening(options.OpeningMethod), criterion, minPower, maxPower, options.MaxResults)
+                    .Run(tolerance, normalizedData, ct);
+
             case "hafc-tc":
                 return new HAfcTcAlgorithm(builder, closure, criterion, minPower).Run(tolerance, normalizedData, ct).Levels;
 
@@ -261,8 +280,10 @@ public static class AlgorithmFactory
         }
         if (key == "daifc" && !options.ClusterCount.HasValue)
             problems.Add("'daifc' needs the number of clusters");
-        if (key is not ("dafc" or "dafc-tc-alpha" or "dafc-taga-alpha"))
-            Reject(options.UserAlpha.HasValue, "the threshold α", "dafc, dafc-tc-alpha, dafc-taga-alpha");
+        if (key is not ("dafc" or "dafc-tc-alpha" or "dafc-taga-alpha" or "dafc-to-alpha"))
+            Reject(options.UserAlpha.HasValue, "the threshold α", "dafc, dafc-tc-alpha, dafc-taga-alpha, dafc-to-alpha");
+        if (key is not ("dafc-to" or "dafc-to-alpha" or "dpafc-to"))
+            Reject(!string.IsNullOrEmpty(options.OpeningMethod), "the method of the transitive opening", "dafc-to, dafc-to-alpha, dpafc-to");
         if (key is not ("dafc" or "dafc-u" or "dpafc"))
             Reject(options.MaxIntersections.HasValue, "the intersection bound w", "dafc, dafc-u, dpafc");
         if (key == "dafc-u" && options.MaxClusterPower < 1)
@@ -272,7 +293,7 @@ public static class AlgorithmFactory
 
         if (key == "dafc" && !options.ClusterCount.HasValue)
             problems.Add("'dafc' needs the number of clusters");
-        if (key is "dafc-tc-alpha" or "dafc-taga-alpha" && !options.UserAlpha.HasValue)
+        if (key is "dafc-tc-alpha" or "dafc-taga-alpha" or "dafc-to-alpha" && !options.UserAlpha.HasValue)
             problems.Add($"'{key}' needs the least threshold α");
         if (options.ClusterCount is < 2)
             problems.Add("the number of clusters must be at least 2");
@@ -370,6 +391,19 @@ public static class AlgorithmFactory
     /// The transitive-approximation processor for an operator name: max, min, mean, median,
     /// umedian, dmedian, or auto (the default) — the operator whose approximation is nearest to T.
     /// </summary>
+    /// <summary>
+    /// The transitive opening for the TO algorithms: <c>complete-linkage</c> (default), the
+    /// construction that reproduces the published example, or <c>single-linkage-order</c>, the
+    /// cited algorithm with the bound that keeps its result transitive.
+    /// </summary>
+    public static TransitiveOpening BuildOpening(string? method) => method?.ToLowerInvariant().Trim() switch
+    {
+        null or "" or "complete-linkage" => new TransitiveOpening(TransitiveOpeningMethod.CompleteLinkage),
+        "single-linkage-order"           => new TransitiveOpening(TransitiveOpeningMethod.SingleLinkageOrder),
+        var other => throw new ArgumentException(
+            $"Unknown method of the transitive opening: '{other}'. Valid names: complete-linkage, single-linkage-order")
+    };
+
     public static TAGAProcessor BuildTaga(string? operatorName) => operatorName?.ToLowerInvariant().Trim() switch
     {
         null or "" or "auto" or "automatic" => TAGAProcessor.Automatic,
@@ -427,5 +461,10 @@ public sealed record AlgorithmOptions(
     /// Intuitionistic algorithms on attribute data: similarity measure that builds the tolerance,
     /// <c>hamming</c> (default) or <c>euclidean</c>.
     /// </summary>
-    string? IntuitionisticMeasure = null
+    string? IntuitionisticMeasure = null,
+    /// <summary>
+    /// TO algorithms: how the transitive opening is computed, <c>complete-linkage</c> (default) or
+    /// <c>single-linkage-order</c>.
+    /// </summary>
+    string? OpeningMethod = null
 );
