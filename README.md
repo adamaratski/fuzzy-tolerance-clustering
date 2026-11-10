@@ -29,7 +29,8 @@ screenshots) explains it screen by screen; its source is [`docs/user-guide`](doc
 ## Algorithms
 
 Every algorithm runs on attribute data (objects in rows) or, with `--matrix`, on a fuzzy
-tolerance matrix given directly; the attribute-space reduction needs attribute data.
+tolerance matrix given directly; the attribute-space reduction needs attribute data. The three
+intuitionistic algorithms (last rows) take intuitionistic fuzzy data instead, see below.
 
 | Name | What is given | What is found | Book section |
 |------|---------------|---------------|--------------|
@@ -42,12 +43,22 @@ tolerance matrix given directly; the attribute-space reduction needs attribute d
 | `dafc-taga`, `dafc-taga-alpha`, `dpafc-taga` | aggregation operator `--taga` (default: chosen automatically) | as the `-tc` algorithms, on a transitive approximation | D-AFC-TAGA family |
 | `hafc-tc`, `hafc-taga` | nothing | the allotment of every level (hierarchy) | H-AFC-TC, H-AFC-TAGA |
 | `dpafc-dr`, `dpafc-tc-dr`, `dpafc-taga-dr` | nothing | attributes are clustered, one per cluster is kept, D-PAFC runs on the reduced data | Dimensionality reduction |
+| `dpaifc` | nothing | the first pair of thresholds $(\alpha, \beta)$ with fully separated intuitionistic fuzzy clusters (least number of clusters) | D-PAIFC |
+| `daifc` | number of clusters $c$ (`--clusters`) | $(\alpha, \beta)$, typical points; the clusters share objects only if no fully separated allotment exists ($w = 0, 1, \dots$) | D-AIFC(c) |
+| `dpaifc-tc` | nothing | D-PAIFC on the transitive closure of the intuitionistic fuzzy tolerance (max-min on the memberships, min-max on the non-memberships); ties by the prototype rule | D-PAIFC-TC |
 
 On a transitive closure or approximation the allotments of a level are ranked class by class
 (one typical point per equivalence class), so the prototype-based and hierarchical algorithms
 take milliseconds. The relational algorithms search combinations of typical points; their
 search is bounded by a node budget (`--max-nodes`), and the tool says so when the budget was
 spent and the result may be incomplete.
+
+The intuitionistic algorithms work on intuitionistic fuzzy data, in one of two forms:
+an intuitionistic fuzzy tolerance as two square CSV matrices (memberships with `--input`,
+non-memberships with `--nonmembership`), or intuitionistic attribute data, one CSV whose
+numeric columns come in pairs (membership, non-membership) per attribute, for example
+`f1_mu,f1_nu,f2_mu,f2_nu,…`; the tolerance is then built with a similarity measure
+(`--ifs-measure`).
 
 ## .NET
 
@@ -127,7 +138,7 @@ Options of `cluster`:
 | `--algorithm` | see the algorithm table | — |
 | `--input` | data file: comma, semicolon or tab separated, with or without a header. A label column — a text column with repeated values, or a column headed `class`, `label`, `labels`, `type`, `species`, `variety`, `target`, `category` or `group` — is left out of the data and used for the external indices; a column of object names is ignored. A missing value is an error | — |
 | `--matrix` | the input file is a fuzzy tolerance matrix (symmetric, values in [0, 1]; a header row and a column of names are allowed) | attribute data |
-| `--clusters` | $c$ for `dafc` (required) and `dafc-tc` (optional) | — |
+| `--clusters` | $c$ for `dafc` and `daifc` (required) and `dafc-tc` (optional) | — |
 | `--alpha` | a single level for `dafc`; the least threshold for `dafc-tc-alpha`, `dafc-taga-alpha` | — |
 | `--max-size` | largest number of objects in a cluster; the parameter $u$ of `dafc-u` | no bound |
 | `--min-size` | least number of objects in a cluster | 1 |
@@ -138,6 +149,9 @@ Options of `cluster`:
 | `--accuracy` | $\varepsilon$, e.g. `0.00001` | full precision |
 | `--taga` | `auto`, `max`, `min`, `mean`, `median`, `umedian`, `dmedian` | `auto` |
 | `--criterion` | `f1`, `f2` | `f1` |
+| `--nonmembership` | file with the matrix of non-memberships; with `--input` as the matrix of memberships it gives an intuitionistic fuzzy tolerance (`dpaifc`, `daifc`, `dpaifc-tc`) | — |
+| `--ifs-measure` | `hamming`, `euclidean`: similarity measure that builds the tolerance from intuitionistic attribute data | `hamming` |
+| `--scan-order` | `beta-inner`, `beta-outer`: order in which the pairs $(\alpha, \beta)$ are scanned by the intuitionistic algorithms; `beta-outer` reproduces the published D-PAIFC result on the relation of Hung, Lee and Fuh | `beta-inner` |
 | `--max-nodes` | node budget of the combination search | 500 000 000 |
 | `--top` | number of allotments reported | 200 |
 | `--format`, `--output` | `table`, `json`, `csv`; output file | `table`, stdout |
@@ -151,11 +165,22 @@ the output are 0-based.
 
 To reproduce the setting of the monograph, use `--distance squared-euclidean --normalize max --accuracy 0.00001`.
 
+The intuitionistic algorithms do not use `--distance`, `--normalize`, `--criterion` and
+`--accuracy`. Their table has an extra `Beta` column and the criterion $F_{IFS}$; the best line
+shows $\beta$ and, for `daifc`, the intersection bound $w$; JSON has `beta` and
+`intersectionBound`.
+
 ```bash
 mfuzzy cluster --algorithm dafc-u --max-size 6 --matrix --input datasets/tamura_16.csv
 mfuzzy size --input datasets/sneath_sokal.csv --distance squared-euclidean --normalize max
 mfuzzy bounds --objects 150 --clusters 2 --alpha 0.80384 --shape gaussian
+mfuzzy cluster --algorithm daifc --clusters 3 --input datasets/hung_ifs_membership.csv \
+    --nonmembership datasets/hung_ifs_nonmembership.csv
+mfuzzy cluster --algorithm dpaifc-tc --input datasets/cars10_ifs.csv --ifs-measure hamming
 ```
+
+The first of the two new examples gives $(\alpha, \beta) = (0.4, 0.6)$ with $w = 1$; the second
+gives four clusters at $(0.4833, 0.1667)$.
 
 ### Desktop workbench
 
@@ -174,7 +199,11 @@ What it shows:
 - an inference-system page;
 - a CPU, memory and GPU monitor.
 
-Both attribute data and tolerance matrices can be opened and clustered.
+- the category *Intuitionistic* (D-PAIFC, D-AIFC(c), D-PAIFC-TC) with the parameters $c$, scan order and measure.
+
+Both attribute data and tolerance matrices can be opened and clustered. Intuitionistic data
+are opened with *Open data → Intuitionistic tolerance (μ and ν matrices)…* (two file dialogs:
+memberships, then non-memberships) or *Intuitionistic attribute data…*.
 
 ### Reproducing the experiments of the book
 

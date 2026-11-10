@@ -89,6 +89,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "cat-prototype":    SelectCategory("Prototype-based", "D-AFC-TC");  break;
             case "cat-hierarchical": SelectCategory("Hierarchical", "H-AFC-TC");     break;
             case "cat-dr":           SelectCategory("Dim. reduction", "D-PAFC-DR");  break;
+            case "cat-ifs":          SelectCategory("Intuitionistic", "D-PAIFC");    break;
             default:                 CurrentPage = tag; break;
         }
     }
@@ -201,6 +202,65 @@ public sealed partial class ShellViewModel : ObservableObject
         StatusMessage = $"Loaded: {ws.Name}";
     }
 
+    /// <summary>Opens an intuitionistic fuzzy tolerance: the membership matrix first, then the non-membership matrix.</summary>
+    [RelayCommand]
+    private void OpenIntuitionisticRelation()
+    {
+        var membership = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            Title  = "Intuitionistic tolerance, file 1 of 2: membership matrix"
+        };
+        if (membership.ShowDialog() != true) return;
+        var nonMembership = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            Title  = "Intuitionistic tolerance, file 2 of 2: non-membership matrix",
+            InitialDirectory = Path.GetDirectoryName(membership.FileName)
+        };
+        if (nonMembership.ShowDialog() != true) return;
+
+        try
+        {
+            AddIntuitionisticWorkset(_workspace.LoadIntuitionisticRelation(membership.FileName, nonMembership.FileName));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Load error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    /// <summary>Opens intuitionistic attribute data (columns in pairs: membership, non-membership).</summary>
+    [RelayCommand]
+    private void OpenIntuitionisticData()
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            Title  = "Open intuitionistic attribute data"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            AddIntuitionisticWorkset(_workspace.LoadIntuitionisticData(dlg.FileName));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Load error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void AddIntuitionisticWorkset(Workset ws)
+    {
+        var vm = new WorksetViewModel { Model = ws, Name = ws.Name, Meta = ws.Meta, IsMatrixInput = true };
+        Worksets.Add(vm);
+        ActiveWorkset = vm;
+        if (!AlgorithmPanel.IsIntuitionistic) AlgorithmPanel.SelectedAlgorithm = "D-PAIFC";
+        StatusMessage = $"Intuitionistic fuzzy data loaded: {ws.Name} · {ws.Meta}. The algorithms of the Intuitionistic category run on it.";
+        SelectedTab = ResultTabs[0];
+    }
+
     [RelayCommand]
     private void OpenMatrix()
     {
@@ -273,9 +333,20 @@ public sealed partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private async Task Run()
     {
-        if (_workspace.RawData is null && _workspace.ActiveWorkset?.InputMatrix is null)
+        if (_workspace.RawData is null && _workspace.ActiveWorkset?.InputMatrix is null
+            && _workspace.ActiveWorkset is not { IsIntuitionistic: true })
         {
             StatusMessage = "Open a data file or a tolerance matrix first.";
+            return;
+        }
+
+        // the kind of data and the kind of algorithm must agree; said inline, it is not an algorithm failure
+        bool intuitionisticData = _workspace.ActiveWorkset is { IsIntuitionistic: true };
+        if (AlgorithmPanel.IsIntuitionistic != intuitionisticData)
+        {
+            StatusMessage = AlgorithmPanel.IsIntuitionistic
+                ? "This algorithm needs intuitionistic fuzzy data: Open data → Intuitionistic tolerance (μ and ν matrices) or Intuitionistic attribute data."
+                : "The active workset holds intuitionistic fuzzy data. Choose an algorithm of the Intuitionistic category, or select a workset with ordinary data.";
             return;
         }
 
@@ -339,7 +410,11 @@ public sealed partial class ShellViewModel : ObservableObject
                 BestPurity = "—";
                 BestAri    = "—";
                 StatusMessage = results.Count > 0
-                    ? $"Done — {results.Count} solution(s). Best: c={results[0].ClusterCount}, F₁={results[0].Score:F4}"
+                    ? results[0].Beta is double bestBeta
+                        ? $"Done — {results.Count} solution(s). Best: c={results[0].ClusterCount}, (α, β)=({results[0].Alpha:F4}, {bestBeta:F4}), F={results[0].Score:F4}"
+                          + (results[0].IntersectionBound is int bound and > 0 ? $", w={bound}" : "")
+                          + (ClusterResult.DescribeTie(results) is { } tie ? $". {tie}" : "")
+                        : $"Done — {results.Count} solution(s). Best: c={results[0].ClusterCount}, F₁={results[0].Score:F4}"
                     : options.UserAlpha is { } ua && options.Algorithm == "dafc"
                         ? $"No valid clustering at α* = {ua.ToString(CultureInfo.InvariantCulture)}. Try α levels = All levels."
                         : "No valid clustering found for these parameters.";
@@ -451,6 +526,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 rank      = i + 1,
                 c         = r.ClusterCount,
                 alpha     = r.Alpha,
+                beta      = r.Beta,
+                intersectionBound = r.IntersectionBound,
                 score     = r.Score,
                 criterion = r.CriterionName,
                 tiebreaker = r.TiebreakerScore,
@@ -468,14 +545,16 @@ public sealed partial class ShellViewModel : ObservableObject
     private static string ResultsToCsv(IReadOnlyList<ClusterResult> results)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("rank,c,alpha,score,tiebreaker,centres,sizes");
+        bool hasBeta = results.Any(r => r.Beta.HasValue);
+        sb.AppendLine(hasBeta ? "rank,c,alpha,beta,score,tiebreaker,centres,sizes" : "rank,c,alpha,score,tiebreaker,centres,sizes");
         for (int i = 0; i < results.Count; i++)
         {
             var r = results[i];
             sb.Append(i + 1).Append(',')
               .Append(r.ClusterCount).Append(',')
-              .Append(r.Alpha.ToString("F6", CultureInfo.InvariantCulture)).Append(',')
-              .Append(r.Score.ToString("F6", CultureInfo.InvariantCulture)).Append(',')
+              .Append(r.Alpha.ToString("F6", CultureInfo.InvariantCulture)).Append(',');
+            if (hasBeta) sb.Append(r.Beta?.ToString("F6", CultureInfo.InvariantCulture) ?? "").Append(',');
+            sb.Append(r.Score.ToString("F6", CultureInfo.InvariantCulture)).Append(',')
               .Append(r.TiebreakerScore?.ToString("F6", CultureInfo.InvariantCulture) ?? "").Append(',')
               .Append('"').Append(string.Join(" ", r.Centers.Select(c => c + 1))).Append('"').Append(',')
               .Append('"').Append(string.Join(" ", r.MemberSets.Select(s => s.Length))).Append('"')
@@ -484,9 +563,35 @@ public sealed partial class ShellViewModel : ObservableObject
         return sb.ToString();
     }
 
+    /// <summary>First rows of intuitionistic attribute data: a pair (μ, ν) per attribute.</summary>
+    private static string BuildIntuitionisticPreview(MathFuzzy.Core.Intuitionistic.IntuitionisticDataMatrix data)
+    {
+        var sb = new StringBuilder();
+        sb.Append("row".PadRight(6));
+        for (int attribute = 0; attribute < data.Attributes; attribute++)
+            sb.Append($"(μ, ν) {data.AttributeNames[attribute]}".PadLeft(16));
+        sb.AppendLine();
+        int rows = System.Math.Min(data.Objects, 12);
+        for (int row = 0; row < rows; row++)
+        {
+            sb.Append((row + 1).ToString(CultureInfo.InvariantCulture).PadRight(6));
+            for (int attribute = 0; attribute < data.Attributes; attribute++)
+            {
+                string pair = string.Create(CultureInfo.InvariantCulture,
+                    $"({data.Membership(row, attribute):0.##}, {data.NonMembership(row, attribute):0.##})");
+                sb.Append(pair.PadLeft(16));
+            }
+            sb.AppendLine();
+        }
+        if (data.Objects > rows) sb.AppendLine($"… {data.Objects - rows} more rows");
+        return sb.ToString();
+    }
+
     /// <summary>First rows of the raw data as fixed-width text (Data page preview).</summary>
     private static string BuildPreview(Workset ws)
     {
+        if (ws.IntuitionisticData is { } ifs) return BuildIntuitionisticPreview(ifs);
+        if (ws.IsIntuitionistic) return "Intuitionistic fuzzy tolerance: a membership and a non-membership matrix — no attributes.";
         if (ws.RawData is not { } data) return ws.IsMatrixInput ? "Matrix input — no raw features." : "";
 
         var sb = new StringBuilder();
@@ -517,7 +622,9 @@ public sealed partial class ShellViewModel : ObservableObject
         int n = ws?.RawData?.Rows ?? ws?.ToleranceMatrix?.Size ?? 0;
         string name = Path.GetFileNameWithoutExtension(ws?.Name ?? "");
         BestResultSummary =
-            $"{AlgorithmPanel.ChipText} · c={best.ClusterCount} · α*={best.Alpha:F2} · F₁={best.Score:F3} · {name} n={n}";
+            best.Beta is double beta
+                ? $"{AlgorithmPanel.ChipText} · c={best.ClusterCount} · (α, β)=({best.Alpha:F2}, {beta:F2}) · F={best.Score:F3} · {name} n={n}"
+                : $"{AlgorithmPanel.ChipText} · c={best.ClusterCount} · α*={best.Alpha:F2} · F₁={best.Score:F3} · {name} n={n}";
         BestCentres = best.Centers
             .Select((c, i) =>
                 $"C{ResultTabViewModel.Sub(i + 1)} obj {c + 1} · n={best.MemberSets[i].Length}")

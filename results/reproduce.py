@@ -29,6 +29,7 @@ KEPT_RESULTS = 10
 # tbl-reproduction-leap (the monograph's setting: squared Euclidean, max, ε).
 MINMAX = ["--normalize", "minmax"]
 MONO = ["--normalize", "max", "--distance", "squared-euclidean"]
+NONMEMBERSHIP = ["--nonmembership", str(root / "datasets" / "hung_ifs_nonmembership.csv")]
 runs = [
     # tbl-reproduction
     ("iris_dafc3_euclidean",        "iris_labeled.csv",      "dafc",     ["--clusters", "3", "--distance", "euclidean"] + MINMAX),
@@ -81,11 +82,18 @@ runs = [
     ("sneath_dafc-taga-auto_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "auto"] + MONO),
     ("iris_dafc-taga-auto_euclidean_max", "iris_labeled.csv", "dafc-taga", ["--taga", "auto", "--normalize", "max", "--distance", "euclidean"]),
     ("iris_hafc-taga-mean_euclidean", "iris_labeled.csv", "hafc-taga", ["--taga", "mean", "--distance", "euclidean"] + MINMAX),
+    # intuitionistic fuzzy data: a relation given by two matrices, and attribute data
+    ("ifs_hung_dpaifc_beta-outer",    "hung_ifs_membership.csv", "dpaifc", NONMEMBERSHIP + ["--scan-order", "beta-outer"]),
+    ("ifs_hung_dpaifc_beta-inner",    "hung_ifs_membership.csv", "dpaifc", NONMEMBERSHIP),
+    ("ifs_hung_daifc3",               "hung_ifs_membership.csv", "daifc",  NONMEMBERSHIP + ["--clusters", "3"]),
+    ("ifs_cars5_dpaifc-tc",           "cars5_ifs.csv",    "dpaifc-tc", []),
+    ("ifs_cars10_dpaifc-tc",          "cars10_ifs.csv",   "dpaifc-tc", []),
 ]
 
 lines = ["# Reproduction runs", "",
          "Each row is the top-ranked allotment of one command-line run; `overlap` is the number of objects in more than one cluster (the w of the book); `misclassified` is n · (1 − purity) and is "
-         "reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process.", "",
+         "reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process."
+         " For the runs on intuitionistic fuzzy data (`ifs_…`) the column α* holds the pair of thresholds (α, β).", "",
          "| run | n | c | α* | F | centres (1-based) | sizes | overlap | purity | ARI | NMI | misclassified | time s |",
          "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
 header_lines = len(lines)
@@ -93,7 +101,8 @@ for name, dataset, algorithm, options in runs:
     if only and only not in name: continue
     target = out_dir / f"{name}.json"
     command = [str(cli), "cluster", "--algorithm", algorithm, "--input", str(root / "datasets" / dataset),
-               "--criterion", "f1", "--format", "json", "--output", str(target)] + options
+               "--format", "json", "--output", str(target)] + options
+    if not name.startswith("ifs_"): command += ["--criterion", "f1"]   # the intuitionistic criterion is fixed
     if target.exists() and "--rerun" not in sys.argv:
         elapsed = float("nan")   # kept from an earlier run; pass --rerun to recompute everything
     else:
@@ -131,7 +140,9 @@ for name, dataset, algorithm, options in runs:
     nmi = f"{validation['nmi']:.3f}" if validation else "—"
     misclassified = f"{round(objects * (1 - validation['purity']))}" if validation else "—"
     elapsed_text = "—" if elapsed != elapsed else f"{elapsed:.1f}"
-    lines.append(f"| {name} | {objects} | {best['clusterCount']} | {best['alpha']:.5f} | {best['score']:.5f} | "
+    # intuitionistic runs: the pair of thresholds (α, β)
+    alpha_text = f"{best['alpha']:.5f}" + (f", β {best['beta']:.5f}" if best.get("beta") is not None else "")
+    lines.append(f"| {name} | {objects} | {best['clusterCount']} | {alpha_text} | {best['score']:.5f} | "
                  f"{[c + 1 for c in best['centers']]} | {sizes} | {overlap} | {purity} | {ari} | {nmi} | {misclassified} | {elapsed_text} |")
     print(lines[-1])
 

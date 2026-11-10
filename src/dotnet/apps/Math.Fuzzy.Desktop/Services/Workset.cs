@@ -1,4 +1,5 @@
 using MathFuzzy.Clustering.Results;
+using MathFuzzy.Core.Intuitionistic;
 using MathFuzzy.Core.Matrix;
 
 namespace MathFuzzy.Desktop.Services;
@@ -23,9 +24,20 @@ public sealed class Workset
     /// <summary>True when <see cref="ToleranceMatrix"/> is the max-min transitive closure T̃.</summary>
     public bool ClosureApplied  { get; set; }
 
+    /// <summary>An intuitionistic fuzzy tolerance loaded as a pair of matrices, or built from <see cref="IntuitionisticData"/>.</summary>
+    public IntuitionisticToleranceMatrix? IntuitionisticTolerance { get; init; }
+    /// <summary>Intuitionistic attribute data: a (membership, non-membership) pair per object and attribute.</summary>
+    public IntuitionisticDataMatrix? IntuitionisticData { get; init; }
+    /// <summary>True for worksets that hold intuitionistic fuzzy data; the intuitionistic algorithms run on them.</summary>
+    public bool IsIntuitionistic => IntuitionisticTolerance is not null;
+
     public IReadOnlyList<ClusterResult> Results { get; set; } = [];
 
-    public string Meta => IsMatrixInput
+    public string Meta => IsIntuitionistic
+        ? IntuitionisticData is { } ifsData
+            ? $"{ifsData.Objects} × {ifsData.Attributes} · intuitionistic data"
+            : $"{IntuitionisticTolerance!.Size} × {IntuitionisticTolerance.Size} · intuitionistic tolerance"
+        : IsMatrixInput
         ? $"{ToleranceMatrix?.Size ?? 0} × {ToleranceMatrix?.Size ?? 0} · matrix input"
         : $"{RawData?.Rows ?? 0} × {RawData?.Cols ?? 0}{(Labels is not null ? $" · {Labels.ClassCount} classes" : "")}";
 }

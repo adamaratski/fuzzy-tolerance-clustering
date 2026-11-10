@@ -14,6 +14,17 @@ Algorithms
 - **Tolerance matrices as input** (`--matrix`, *Open matrix* in the workbench) for every
   algorithm except the attribute-space reduction.
 
+- **Intuitionistic fuzzy data** (D. A. Viattchenin's heuristic approach): D-PAIFC (`dpaifc`),
+  D-AIFC(c) (`daifc`) and D-PAIFC-TC (`dpaifc-tc`), in the library, the command-line tool and
+  the workbench. The input is an intuitionistic fuzzy tolerance (two matrices: memberships and
+  non-memberships) or intuitionistic attribute data (pairs of columns, membership and
+  non-membership), from which the tolerance is built with the Hamming or the Euclidean
+  similarity measure. D-PAIFC returns the first pair of thresholds (α, β) with fully separated
+  clusters; D-AIFC(c) raises the intersection bound w only if no fully separated allotment
+  with c clusters exists; D-PAIFC-TC applies D-PAIFC to the transitive closure (max-min on the
+  memberships, min-max on the non-memberships). The criterion is F_IFS. The published
+  examples (Hung–Lee–Fuh relation, ten cars) are tests.
+
 Search
 - Closure-based algorithms (D-AFC-TC, D-AFC-TC(α), D-PAFC-TC) rank the allotments of a level
   class by class instead of enumerating combinations; ties between typical points are resolved
@@ -34,6 +45,26 @@ Command-line tool
 - External indices assign an object that lies in several clusters to the cluster of its
   largest membership.
 - JSON output is always an object with `results` and `search`.
+- Intuitionistic algorithms: options `--nonmembership`, `--ifs-measure hamming|euclidean`,
+  `--scan-order beta-inner|beta-outer` (`beta-outer` reproduces the published D-PAIFC result);
+  an extra `Beta` column in the table, `β` and `w` in the best line, `beta` and
+  `intersectionBound` in JSON. `--distance`, `--normalize`, `--criterion` and `--accuracy`
+  are rejected for these algorithms.
+
+Desktop workbench
+- *Open data → Intuitionistic tolerance (μ and ν matrices)…* and *Intuitionistic attribute
+  data…*; the category *Intuitionistic* with D-PAIFC, D-AIFC(c) and D-PAIFC-TC; parameters:
+  number of clusters (D-AIFC(c)), scan order, measure (attribute data). The *Tolerance* tab
+  shows the membership matrix, the result line the pair (α, β). Running an intuitionistic
+  algorithm on ordinary data, or an ordinary algorithm on intuitionistic data, gives a
+  message that says what to open or choose.
+
+Data files
+- `hung_ifs_membership.csv`, `hung_ifs_nonmembership.csv`, `cars5_ifs.csv`, `cars10_ifs.csv`.
+
+Tests
+- 20 new tests for the intuitionistic algorithms; five runs on intuitionistic data in
+  `results/reproduce.py` (51 runs in all).
 
 Other
 - MATLAB / GNU Octave toolbox rewritten to follow the algorithms (D-AFC(c), D-PAFC, D-AFC-TC,

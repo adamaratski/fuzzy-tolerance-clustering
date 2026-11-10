@@ -1,5 +1,6 @@
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Core.Distance;
+using MathFuzzy.Core.Intuitionistic;
 using System.IO;
 using MathFuzzy.Core.Matrix;
 using MathFuzzy.Core.Normalization;
@@ -47,6 +48,37 @@ public sealed class WorkspaceService : IWorkspaceService
             IsMatrixInput   = true,
             InputMatrix     = matrix,
             ToleranceMatrix = matrix.Clone()
+        };
+        _worksets.Add(ws);
+        Activate(ws);
+        return ws;
+    }
+
+    public Workset LoadIntuitionisticRelation(string membershipPath, string nonMembershipPath)
+    {
+        var relation = IntuitionisticToleranceMatrix.FromCsv(membershipPath, nonMembershipPath);
+        return AddIntuitionistic(Path.GetFileName(membershipPath), membershipPath, relation, null);
+    }
+
+    public Workset LoadIntuitionisticData(string path)
+    {
+        var data = IntuitionisticDataMatrix.FromCsv(path);
+        // the Hamming-type tolerance is what the heat map shows; a run rebuilds it with the chosen measure
+        var relation = IntuitionisticSimilarity.BuildTolerance(data, IntuitionisticMeasure.Hamming);
+        return AddIntuitionistic(Path.GetFileName(path), path, relation, data);
+    }
+
+    private Workset AddIntuitionistic(string name, string path, IntuitionisticToleranceMatrix relation, IntuitionisticDataMatrix? data)
+    {
+        var ws = new Workset
+        {
+            Name                    = name,
+            SourcePath              = path,
+            IsMatrixInput           = true,
+            IntuitionisticTolerance = relation,
+            IntuitionisticData      = data,
+            // the membership part is shown on the Tolerance tab
+            ToleranceMatrix         = FuzzyToleranceMatrix.FromArray(relation.MembershipMatrix())
         };
         _worksets.Add(ws);
         Activate(ws);

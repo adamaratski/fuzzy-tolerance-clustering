@@ -15,7 +15,9 @@ public sealed record AlgorithmRunOptions(
     double? Accuracy = null,
     int MaxIntersections = 0,
     int MinClusterPower = 1,
-    int MaxClusterPower = 0
+    int MaxClusterPower = 0,
+    string? ThresholdScanOrder = null,
+    string? IntuitionisticMeasure = null
 );
 
 /// <summary>Structured run progress: phase text plus optional 0..1 completion fraction.</summary>

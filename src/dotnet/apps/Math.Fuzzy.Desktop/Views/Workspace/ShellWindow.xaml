@@ -155,6 +155,13 @@
                                 <TextBlock Text="Dim. reduction" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton>
+                        <RadioButton Style="{StaticResource NavItem}"
+                                     CommandParameter="cat-ifs">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="CircleHalfFill24" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Intuitionistic" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
                         <TextBlock Style="{StaticResource NavHeader}" Text="THEORY"/>
                         <RadioButton Style="{StaticResource NavItem}"
                                      CommandParameter="mf">
@@ -213,6 +220,13 @@
                                     <MenuItem Header="Tolerance matrix…" InputGestureText="Ctrl+Shift+O"
                                               Command="{Binding OpenMatrixCommand}"
                                               AutomationProperties.Name="Open tolerance matrix"/>
+                                    <Separator/>
+                                    <MenuItem Header="Intuitionistic tolerance (μ and ν matrices)…"
+                                              Command="{Binding OpenIntuitionisticRelationCommand}"
+                                              AutomationProperties.Name="Open intuitionistic tolerance"/>
+                                    <MenuItem Header="Intuitionistic attribute data…"
+                                              Command="{Binding OpenIntuitionisticDataCommand}"
+                                              AutomationProperties.Name="Open intuitionistic data"/>
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
@@ -252,6 +266,7 @@
                         </Button>
                         <Button Style="{StaticResource RunSelectedButton}"
                                 Command="{Binding RunCommand}"
+                                AutomationProperties.Name="Run selected"
                                 Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVisibility}}">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Play24" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
@@ -315,16 +330,19 @@
                             BorderBrush="{StaticResource SuccessEdgeBrush}" BorderThickness="1"
                             CornerRadius="6"
                             Visibility="{Binding HasBestResult, Converter={StaticResource BoolToVisibility}}">
-                        <WrapPanel>
-                            <TextBlock Style="{StaticResource InfoLabel}" Text="Best: "/>
-                            <TextBlock Style="{StaticResource InfoValueAccent}" Text="{Binding BestResultSummary}" Margin="0,0,16,0"/>
-                            <TextBlock Style="{StaticResource InfoLabel}" Text="c = "/>
-                            <TextBlock Style="{StaticResource InfoValue}" Text="{Binding BestC}" Margin="0,0,16,0"/>
-                            <TextBlock Style="{StaticResource InfoLabel}" Text="Purity = "/>
-                            <TextBlock Style="{StaticResource InfoValue}" Text="{Binding BestPurity}" Margin="0,0,16,0"/>
-                            <TextBlock Style="{StaticResource InfoLabel}" Text="ARI = "/>
-                            <TextBlock Style="{StaticResource InfoValue}" Text="{Binding BestAri}"/>
-                        </WrapPanel>
+                        <!-- one text block: the runs share a baseline whatever fallback fonts the symbols need -->
+                        <TextBlock FontFamily="Segoe UI" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Subtext0Brush}">
+                            <Run Text="Best:"/>
+                            <Run Text="{Binding BestResultSummary, Mode=OneWay}" FontWeight="SemiBold"
+                                 Foreground="{StaticResource SuccessBrush}"/>
+                            <Run Text="&#160;&#160;&#160;c ="/>
+                            <Run Text="{Binding BestC, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+                            <Run Text="&#160;&#160;&#160;Purity ="/>
+                            <Run Text="{Binding BestPurity, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+                            <Run Text="&#160;&#160;&#160;ARI ="/>
+                            <Run Text="{Binding BestAri, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+                        </TextBlock>
                     </Border>
 
                     <!-- Metric tiles -->

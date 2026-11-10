@@ -73,7 +73,7 @@ can be opened with *Open data*.
 The window has four areas (see the figure above).
 
 * **Navigation** (left). *General* holds the Dashboard, the data page and the
-  scatter plot. *Algorithms* lists the four categories of algorithms; choosing a
+  scatter plot. *Algorithms* lists the five categories of algorithms; choosing a
   category returns to the Dashboard and selects the category's first algorithm.
   *Theory* holds two pages for exploring fuzzy sets and fuzzy inference.
 * **Header** of the Dashboard. *Open data* loads a CSV file or a tolerance matrix,
@@ -129,6 +129,28 @@ are no attributes, the prototype-based algorithms then resolve ties between
 typical points by the object number, and the pages that need attributes
 (*Visualize*, the inference system) stay empty.
 
+## Intuitionistic fuzzy data {#sec-ifs-data}
+
+The algorithms of the category *Intuitionistic* (@sec-algorithms) work on
+intuitionistic fuzzy data, in which every degree of membership $\mu$ comes with a
+degree of non-membership $\nu$. There are two ways to open such data:
+
+* *Open data → Intuitionistic tolerance (μ and ν matrices)…* loads an intuitionistic
+  fuzzy tolerance. Two file dialogs follow one another: first the $n \times n$
+  matrix of memberships, then the matrix of non-memberships. Both are
+  read as the tolerance matrix above (a header row and a column of names are
+  allowed). The data set `datasets/hung_ifs_membership.csv` with
+  `datasets/hung_ifs_nonmembership.csv` is an example.
+* *Open data → Intuitionistic attribute data…* loads one CSV file whose numeric
+  columns come in pairs (membership, non-membership) per attribute, for
+  example `f1_mu,f1_nu,f2_mu,f2_nu,…`; `datasets/cars10_ifs.csv` is an example. The
+  tolerance is built from the pairs with the similarity measure chosen in the
+  panel (Hamming or Euclidean).
+
+The *Tolerance* tab shows the matrix of memberships of such a workset. If an
+intuitionistic algorithm is started on ordinary data, or an ordinary algorithm on
+intuitionistic data, the status bar says what to open or which category to choose.
+
 ## The data page
 
 *Data & worksets* shows the same list of worksets, the size of the active data
@@ -156,6 +178,9 @@ The blue chip at the top of the panel always shows the selected algorithm.
 | Prototype-based | D-AFC-TAGA, D-AFC-TAGA($\alpha$), D-PAFC-TAGA | no | The same three algorithms with a transitive approximation built by an aggregation operator instead of the closure. |
 | Hierarchical | H-AFC-TC, H-AFC-TAGA | no | The allotments of every level of $\widetilde{T}$ or of the transitive approximation, shown as a dendrogram. |
 | Dim. reduction | D-PAFC-DR, D-PAFC-TC-DR, D-PAFC-TAGA-DR | no | Attribute selection: the same algorithms applied to a tolerance relation between the attributes. |
+| Intuitionistic | D-PAIFC | no | Intuitionistic fuzzy data: the first pair of thresholds $(\alpha, \beta)$ at which the intuitionistic fuzzy clusters are fully separated, i.e. the least number of clusters. |
+| Intuitionistic | D-AIFC(c) | yes | The number of clusters $c$ is given; the clusters may share objects only if no fully separated allotment exists (the bound $w$ on the pairwise intersections is raised 0, 1, …). |
+| Intuitionistic | D-PAIFC-TC | no | D-PAIFC on the transitive closure of the intuitionistic fuzzy tolerance (max-min on the memberships, min-max on the non-memberships). |
 
 : The algorithms of the workbench. {#tbl-algorithms}
 
@@ -205,6 +230,20 @@ The lower part depends on the algorithm:
 ![D-AFC-TC(α) with its field *α\* threshold*.](images/20-dafc-tc-alpha.png){width=100%}
 
 ![A TAGA variant with its field *TAGA operator*.](images/23-taga.png){width=100%}
+
+The category *Intuitionistic* has its own parameters; *Distance*, *Normalize*,
+*Criterion* and *Accuracy ε* are not shown for it (the criterion is $F_{IFS}$):
+
+* **Clusters c** (D-AIFC(c)): the number of clusters.
+* **Scan order** (all three): the order in which the pairs $(\alpha, \beta)$ are
+  scanned, *β inner* (the default) or *β outer*. *β outer* reproduces the published
+  D-PAIFC result on the relation of Hung, Lee and Fuh.
+* **Measure** (*Hamming* or *Euclidean*): the similarity measure that builds the
+  tolerance from intuitionistic attribute data; it is not used when a tolerance
+  was opened as two matrices.
+
+The result line shows the pair $(\alpha, \beta)$ and, for D-AIFC(c), the
+bound $w$.
 
 A parameter that is missing or out of range is reported in red under the fields,
 and *Run selected* does nothing until it is corrected.
@@ -400,4 +439,20 @@ The options carry the names of the panel fields (`--distance`, `--normalize`,
 `--matrix` for a tolerance matrix),
 and `--format json` writes the same JSON as the *Export* command. The README of
 the repository documents the tool, the .NET library and the MATLAB toolbox.
+The intuitionistic algorithms `dpaifc`, `daifc` and `dpaifc-tc` take either two
+matrices (memberships with `--input`, non-memberships with `--nonmembership`) or one
+file of intuitionistic attribute data in pairs of columns (`--ifs-measure hamming` or
+`euclidean`); `--scan-order beta-inner` or `beta-outer` sets the order of the scan.
+For example
+
+```
+mfuzzy cluster --algorithm daifc --clusters 3 --input datasets/hung_ifs_membership.csv ^
+    --nonmembership datasets/hung_ifs_nonmembership.csv
+mfuzzy cluster --algorithm dpaifc-tc --input datasets/cars10_ifs.csv
+```
+
+find three clusters at $(\alpha, \beta) = (0.4, 0.6)$ with $w = 1$ and four clusters at
+$(0.4833, 0.1667)$. The table has an extra column *Beta*, and the options `--distance`,
+`--normalize`, `--criterion` and `--accuracy` are not used.
+
 The tool also has the commands `size` (choice of the largest cluster size $u$), `bounds` (bounds of the number of clusters), `matrix build`, `matrix closure`, `reduce` and `infer`; the README documents them.

@@ -167,6 +167,8 @@ public sealed class ClusterResultRow(int rank, ClusterResult r)
     public int    Rank           { get; } = rank;
     public int    C              { get; } = r.ClusterCount;
     public string Alpha          { get; } = r.Alpha.ToString("F4");
+    /// <summary>Non-membership threshold β of an intuitionistic result.</summary>
+    public string Beta           { get; } = r.Beta?.ToString("F4") ?? "—";
     public string Score          { get; } = r.Score.ToString("F4");
     /// <summary>Geometric tiebreaker score (D-AFC-TC only). Lower = more compact.</summary>
     public string TiebreakerDist { get; } = r.TiebreakerScore.HasValue
@@ -210,14 +212,19 @@ public sealed partial class ClusterTableTabViewModel : ResultTabViewModel
     [ObservableProperty] private IReadOnlyList<ClusterResultRow> _rows = [];
     [ObservableProperty] private ClusterResultRow? _selectedRow;
     [ObservableProperty] private string _summary = "No results yet.";
+    /// <summary>True when the results carry a non-membership threshold β (intuitionistic algorithms).</summary>
+    [ObservableProperty] private bool _hasBeta;
 
     public void Update(IReadOnlyList<ClusterResult> results)
     {
+        HasBeta = results.Count > 0 && results[0].Beta.HasValue;
         Rows = results.Select((r, i) => new ClusterResultRow(i + 1, r)).ToList();
         SelectedRow = Rows.FirstOrDefault();
-        Summary = results.Count > 0
-            ? $"Best: c={results[0].ClusterCount}, α={results[0].Alpha:F4}, F₁={results[0].Score:F4}"
-            : "No valid clustering found.";
+        Summary = results.Count == 0
+            ? "No valid clustering found."
+            : results[0].Beta is double beta
+                ? $"Best: c={results[0].ClusterCount}, α={results[0].Alpha:F4}, β={beta:F4}, F={results[0].Score:F4}"
+                : $"Best: c={results[0].ClusterCount}, α={results[0].Alpha:F4}, F₁={results[0].Score:F4}";
     }
 }
 
@@ -244,7 +251,9 @@ public sealed partial class MembershipHeatmapTabViewModel : ResultTabViewModel
     {
         _results = results;
         SolutionItems = results
-            .Select((r, i) => $"#{i + 1} · c={r.ClusterCount} · α={r.Alpha:F2} · F₁={r.Score:F3}")
+            .Select((r, i) => r.Beta is double beta
+                ? $"#{i + 1} · c={r.ClusterCount} · α={r.Alpha:F2} · β={beta:F2} · F={r.Score:F3}"
+                : $"#{i + 1} · c={r.ClusterCount} · α={r.Alpha:F2} · F₁={r.Score:F3}")
             .ToList();
 
         if (results.Count == 0)

@@ -26,7 +26,8 @@
                 <DataGridTextColumn Header="#"       Binding="{Binding Rank}"           Width="40"/>
                 <DataGridTextColumn Header="c"       Binding="{Binding C}"              Width="40"/>
                 <DataGridTextColumn Header="α"       Binding="{Binding Alpha}"          Width="80"/>
-                <DataGridTextColumn Header="F₁"      Binding="{Binding Score}"          Width="80"/>
+                <DataGridTextColumn x:Name="BetaColumn" Header="β" Binding="{Binding Beta}" Width="80" Visibility="Collapsed"/>
+                <DataGridTextColumn x:Name="ScoreColumn" Header="F₁" Binding="{Binding Score}"   Width="80"/>
                 <DataGridTextColumn Header="Dist↓"   Binding="{Binding TiebreakerDist}" Width="70">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">

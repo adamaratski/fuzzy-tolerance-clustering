@@ -1,6 +1,6 @@
 # Reproduction runs
 
-Each row is the top-ranked allotment of one command-line run; `overlap` is the number of objects in more than one cluster (the w of the book); `misclassified` is n · (1 − purity) and is reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process.
+Each row is the top-ranked allotment of one command-line run; `overlap` is the number of objects in more than one cluster (the w of the book); `misclassified` is n · (1 − purity) and is reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process. For the runs on intuitionistic fuzzy data (`ifs_…`) the column α* holds the pair of thresholds (α, β).
 
 | run | n | c | α* | F | centres (1-based) | sizes | overlap | purity | ARI | NMI | misclassified | time s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -50,3 +50,8 @@ Each row is the top-ranked allotment of one command-line run; `overlap` is the n
 | sneath_dafc-taga-auto_sqeuclid_max | 16 | 2 | 0.81690 | 0.20554 | [2, 14] | [8, 8] | 0 | — | — | — | — | 0.1 |
 | iris_dafc-taga-auto_euclidean_max | 150 | 2 | 0.80384 | 0.19761 | [8, 97] | [50, 100] | 0 | 0.667 | 0.568 | 0.734 | 50 | 0.2 |
 | iris_hafc-taga-mean_euclidean | 150 | 3 | 0.74692 | 0.40312 | [8, 100, 121] | [50, 67, 33] | 0 | 0.887 | 0.720 | 0.784 | 17 | 0.3 |
+| ifs_hung_dpaifc_beta-outer | 10 | 5 | 0.80000, β 0.20000 | 1.56667 | [1, 3, 5, 6, 7] | [3, 1, 3, 2, 1] | 0 | — | — | — | — | 0.1 |
+| ifs_hung_dpaifc_beta-inner | 10 | 5 | 0.10000, β 0.10000 | 4.56667 | [1, 2, 3, 5, 7] | [3, 2, 1, 3, 1] | 0 | — | — | — | — | 0.1 |
+| ifs_hung_daifc3 | 10 | 3 | 0.40000, β 0.60000 | 2.26667 | [6, 8, 10] | [4, 6, 3] | 3 | — | — | — | — | 0.1 |
+| ifs_cars5_dpaifc-tc | 5 | 2 | 0.68333, β 0.10000 | 0.61667 | [3, 5] | [4, 1] | 0 | — | — | — | — | 0.1 |
+| ifs_cars10_dpaifc-tc | 10 | 4 | 0.48333, β 0.16667 | 1.73000 | [1, 2, 4, 5] | [5, 1, 2, 2] | 0 | — | — | — | — | 0.1 |

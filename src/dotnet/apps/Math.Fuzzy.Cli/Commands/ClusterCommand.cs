@@ -10,10 +10,13 @@ public static class ClusterCommand
 {
     public static Command Build()
     {
-        var algorithm = new Option<string>("--algorithm") { Description = "Algorithm: dafc | dafc-u | dpafc | dafc-tc | dafc-tc-alpha | dpafc-tc | dafc-taga | dafc-taga-alpha | dpafc-taga | hafc-tc | hafc-taga | dpafc-dr | dpafc-tc-dr | dpafc-taga-dr", Required = true };
+        var algorithm = new Option<string>("--algorithm") { Description = "Algorithm: dafc | dafc-u | dpafc | dafc-tc | dafc-tc-alpha | dpafc-tc | dafc-taga | dafc-taga-alpha | dpafc-taga | hafc-tc | hafc-taga | dpafc-dr | dpafc-tc-dr | dpafc-taga-dr | dpaifc | daifc | dpaifc-tc (intuitionistic fuzzy data)", Required = true };
         var input     = new Option<FileInfo>("--input") { Description = "CSV file with attribute data (objects in rows), or with an n × n fuzzy tolerance matrix when --matrix is given", Required = true };
         var matrix    = new Option<bool>("--matrix") { Description = "The input file is a fuzzy tolerance matrix (values in [0, 1], symmetric), not attribute data" };
-        var clusters  = new Option<int?>("--clusters") { Description = "Number of clusters c (dafc: required; dafc-tc: optional)" };
+        var nonMember = new Option<FileInfo?>("--nonmembership") { Description = "Intuitionistic algorithms: CSV file with the non-membership matrix; --input is then the membership matrix. Without it --input is intuitionistic attribute data (columns in pairs: membership, non-membership)" };
+        var scanOrder = new Option<string?>("--scan-order") { Description = "Intuitionistic algorithms: order of the scan over the threshold pairs, beta-inner (default) | beta-outer" };
+        var ifsMeasure = new Option<string?>("--ifs-measure") { Description = "Intuitionistic algorithms on attribute data: similarity measure, hamming (default) | euclidean" };
+        var clusters  = new Option<int?>("--clusters") { Description = "Number of clusters c (dafc, daifc: required; dafc-tc: optional)" };
         var alpha     = new Option<double?>("--alpha") { Description = "Threshold α in [0, 1] (dafc: search this level only; dafc-tc-alpha, dafc-taga-alpha: least admissible threshold)" };
         var distance  = new Option<string>("--distance") { Description = "Distance: euclidean | squared-euclidean | manhattan | chebyshev | minkowski | cosine | hamming", DefaultValueFactory = _ => "euclidean" };
         var accuracy  = new Option<double?>("--accuracy") { Description = "Accuracy threshold ε: round the tolerance matrix to multiples of ε before building levels (e.g. 0.00001)" };
@@ -33,7 +36,7 @@ public static class ClusterCommand
         var cmd = new Command("cluster", "Run a fuzzy clustering algorithm")
         {
             algorithm, input, matrix, clusters, alpha, distance, norm, minkP, accuracy, taga, criterion,
-            inters, minSize, maxSize, maxNodes, top, rules, output, format
+            inters, minSize, maxSize, maxNodes, top, rules, output, format, nonMember, scanOrder, ifsMeasure
         };
         cmd.SetAction((parse, ct) =>
         {
@@ -65,7 +68,11 @@ public static class ClusterCommand
                 Rules:          parse.GetValue(rules),
                 Output:         parse.GetValue(output),
                 Format:         parse.GetValue(format)!,
-                MatrixBuildOptionsGiven: matrixBuildOptions), ct);
+                MatrixBuildOptionsGiven: matrixBuildOptions,
+                NonMembership:  parse.GetValue(nonMember),
+                ScanOrder:      parse.GetValue(scanOrder),
+                IntuitionisticMeasure: parse.GetValue(ifsMeasure),
+                MaxNodesGiven:  Given(maxNodes)), ct);
         });
         return cmd;
     }
@@ -76,4 +83,5 @@ internal sealed record ClusterRequest(
     string Algorithm, FileInfo Input, bool InputIsMatrix, int? Clusters, double? Alpha,
     string Distance, string Normalize, double MinkowskiP, double? Accuracy, string? Taga,
     string Criterion, int? Intersections, int MinSize, int MaxSize, long MaxNodes, int Top,
-    FileInfo? Rules, FileInfo? Output, string Format, IReadOnlyList<string> MatrixBuildOptionsGiven);
+    FileInfo? Rules, FileInfo? Output, string Format, IReadOnlyList<string> MatrixBuildOptionsGiven,
+    FileInfo? NonMembership = null, string? ScanOrder = null, string? IntuitionisticMeasure = null, bool MaxNodesGiven = false);

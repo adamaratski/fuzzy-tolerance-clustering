@@ -30,6 +30,17 @@ public sealed partial class DataPanelViewModel : ObservableObject
             Rows = data.Rows;
             Cols = data.Cols;
         }
+        else if (_workspace.ActiveWorkset?.IntuitionisticData is { } intuitionistic)
+        {
+            Rows = intuitionistic.Objects;
+            Cols = intuitionistic.Attributes;
+        }
+        else
+        {
+            // a relation given as a matrix has objects and no attributes
+            Rows = _workspace.ToleranceMatrix?.Size ?? 0;
+            Cols = 0;
+        }
         HasToleranceMatrix = _workspace.ToleranceMatrix is not null;
 
         if (_workspace.ToleranceMatrix is { } tm)

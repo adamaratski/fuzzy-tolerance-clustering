@@ -22,6 +22,10 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
     [ObservableProperty] private int _minClusterPower = 1;
     [ObservableProperty] private string _selectedAlphaSelector = "All levels";
     [ObservableProperty] private int _maxResults = 200;
+    /// <summary>Intuitionistic algorithms: order of the scan over the pairs of thresholds (α, β).</summary>
+    [ObservableProperty] private string _selectedScanOrder = "β inner";
+    /// <summary>Intuitionistic algorithms on attribute data: the similarity measure that builds the tolerance.</summary>
+    [ObservableProperty] private string _selectedIfsMeasure = "Hamming";
 
     public IReadOnlyList<string> Algorithms { get; } =
     [
@@ -29,8 +33,12 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "D-AFC-TC", "D-AFC-TC(α)", "D-PAFC-TC",
         "D-AFC-TAGA", "D-AFC-TAGA(α)", "D-PAFC-TAGA",
         "H-AFC-TC", "H-AFC-TAGA",
-        "D-PAFC-DR", "D-PAFC-TC-DR", "D-PAFC-TAGA-DR"
+        "D-PAFC-DR", "D-PAFC-TC-DR", "D-PAFC-TAGA-DR",
+        "D-PAIFC", "D-AIFC(c)", "D-PAIFC-TC"
     ];
+
+    public IReadOnlyList<string> ScanOrders  { get; } = ["β inner", "β outer"];
+    public IReadOnlyList<string> IfsMeasures { get; } = ["Hamming", "Euclidean"];
 
     public IReadOnlyList<DistanceInfo> Distances      { get; } = DistanceParameterFactory.Items;
     public IReadOnlyList<string> Normalizations { get; } = ["MinMax", "Max", "None"];
@@ -51,11 +59,15 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
     public IReadOnlyList<string> PrototypeVariants    { get; } = ["D-AFC-TC", "D-AFC-TC(α)", "D-PAFC-TC", "D-AFC-TAGA", "D-AFC-TAGA(α)", "D-PAFC-TAGA"];
     public IReadOnlyList<string> HierarchicalVariants { get; } = ["H-AFC-TC", "H-AFC-TAGA"];
     public IReadOnlyList<string> ReductionVariants    { get; } = ["D-PAFC-DR", "D-PAFC-TC-DR", "D-PAFC-TAGA-DR"];
+    public IReadOnlyList<string> IntuitionisticVariants { get; } = ["D-PAIFC", "D-AIFC(c)", "D-PAIFC-TC"];
 
     public bool IsRelational => CategoryText == "Relational";
     public bool IsPrototype  => CategoryText == "Prototype-based";
     public bool IsReduction  => CategoryText == "Dim. reduction";
     public bool IsHierarchical => CategoryText == "Hierarchical";
+    public bool IsIntuitionistic => CategoryText == "Intuitionistic";
+    /// <summary>Distance, normalisation, criterion and accuracy apply to ordinary attribute data only.</summary>
+    public bool UsesAttributeDistance => !IsIntuitionistic;
 
     /// <summary>The algorithms of the selected category; the chip shows the selected one.</summary>
     public IReadOnlyList<string> Variants => CategoryText switch
@@ -63,6 +75,7 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "Relational"      => RelationalVariants,
         "Prototype-based" => PrototypeVariants,
         "Hierarchical"    => HierarchicalVariants,
+        "Intuitionistic"  => IntuitionisticVariants,
         _                 => ReductionVariants
     };
 
@@ -91,6 +104,9 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "D-PAFC-TAGA"    => "Principal allotment on the transitive approximation: its first splitting level.",
         "H-AFC-TC"       => "Every level of T̃: the whole hierarchy of allotments, shown as a dendrogram.",
         "H-AFC-TAGA"     => "Every level of the transitive approximation: a hierarchy that depends on the aggregation operator.",
+        "D-PAIFC"        => "Intuitionistic fuzzy data: the first pair of thresholds (α, β) with fully separated clusters, the least c.",
+        "D-AIFC(c)"      => "Intuitionistic fuzzy data, c is given; clusters may share objects only if no fully separated allotment exists.",
+        "D-PAIFC-TC"     => "Intuitionistic fuzzy data: transitive closure of the intuitionistic tolerance, then D-PAIFC; prototypes resolve ties.",
         "D-PAFC-DR"      => "Attribute selection: D-PAFC on a tolerance relation between the attributes.",
         "D-PAFC-TC-DR"   => "Attribute selection with the transitive closure of the attribute relation.",
         _                => "Attribute selection with a transitive approximation of the attribute relation."
@@ -102,10 +118,11 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "D-AFC" or "D-AFC(u)" or "D-PAFC"                                             => "Relational",
         "D-AFC-TC" or "D-AFC-TC(α)" or "D-PAFC-TC" or "D-AFC-TAGA" or "D-AFC-TAGA(α)" or "D-PAFC-TAGA" => "Prototype-based",
         "H-AFC-TC" or "H-AFC-TAGA"                                                    => "Hierarchical",
+        "D-PAIFC" or "D-AIFC(c)" or "D-PAIFC-TC"                                      => "Intuitionistic",
         _                                                                             => "Dim. reduction"
     };
 
-    public bool ShowClusterCount  => SelectedAlgorithm is "D-AFC";
+    public bool ShowClusterCount  => SelectedAlgorithm is "D-AFC" or "D-AIFC(c)";
     public bool ShowAlphaSelector => SelectedAlgorithm is "D-AFC";
     public bool ShowIntersections => SelectedAlgorithm is "D-PAFC";
     public bool ShowMaxClusterSize => SelectedAlgorithm is "D-AFC(u)";
@@ -116,7 +133,9 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         get
         {
             if (ShowClusterCount && (!int.TryParse(ClusterCountText, out int c) || c < 2))
-                return "D-AFC needs the number of clusters c (an integer ≥ 2). To search c, choose D-PAFC.";
+                return IsIntuitionistic
+                    ? "D-AIFC(c) needs the number of clusters c (an integer ≥ 2). To search c, choose D-PAIFC."
+                    : "D-AFC needs the number of clusters c (an integer ≥ 2). To search c, choose D-PAFC.";
             if (ShowMaxClusterSize && (!int.TryParse(MaxClusterSizeText, out int u) || u < 1))
                 return "D-AFC(u) needs the maximal number of objects in a cluster u (an integer ≥ 1 and below n).";
             if (ShowIntersections && (!int.TryParse(IntersectionsText, out int w) || w < 0))
@@ -125,7 +144,7 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
                 (!double.TryParse(UserAlphaText, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out double a) || a <= 0 || a >= 1))
                 return "α* must be a number in (0, 1).";
-            if (!string.IsNullOrWhiteSpace(AccuracyText) &&
+            if (!IsIntuitionistic && !string.IsNullOrWhiteSpace(AccuracyText) &&
                 (!double.TryParse(AccuracyText, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out double e) || e <= 0 || e >= 1))
                 return "Accuracy ε must be empty or a number in (0, 1), e.g. 0.0001.";
@@ -143,6 +162,8 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowIntersections));
         OnPropertyChanged(nameof(ShowMaxClusterSize));
         OnPropertyChanged(nameof(IsHierarchical));
+        OnPropertyChanged(nameof(IsIntuitionistic));
+        OnPropertyChanged(nameof(UsesAttributeDistance));
         OnPropertyChanged(nameof(Variants));
         OnPropertyChanged(nameof(ShowVariants));
         OnPropertyChanged(nameof(IsRelational));
@@ -203,7 +224,9 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
             Accuracy:      accuracy,
             MaxIntersections: ShowIntersections && int.TryParse(IntersectionsText, out int w) ? System.Math.Max(0, w) : 0,
             MinClusterPower:  System.Math.Max(1, MinClusterPower),   // the Settings page edits this value
-            MaxClusterPower:  ShowMaxClusterSize && int.TryParse(MaxClusterSizeText, out int u) ? System.Math.Max(0, u) : 0
+            MaxClusterPower:  ShowMaxClusterSize && int.TryParse(MaxClusterSizeText, out int u) ? System.Math.Max(0, u) : 0,
+            ThresholdScanOrder:    IsIntuitionistic ? (SelectedScanOrder == "β outer" ? "beta-outer" : "beta-inner") : null,
+            IntuitionisticMeasure: IsIntuitionistic ? SelectedIfsMeasure.ToLowerInvariant() : null
         );
     }
 
@@ -218,6 +241,9 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
         "D-AFC-TAGA"     => "dafc-taga",
         "D-AFC-TAGA(α)"  => "dafc-taga-alpha",
         "H-AFC-TAGA"     => "hafc-taga",
+        "D-PAIFC"        => "dpaifc",
+        "D-AIFC(c)"      => "daifc",
+        "D-PAIFC-TC"     => "dpaifc-tc",
         "D-PAFC-TAGA"    => "dpafc-taga",
         "H-AFC-TC"       => "hafc-tc",
         "D-PAFC-DR"      => "dpafc-dr",

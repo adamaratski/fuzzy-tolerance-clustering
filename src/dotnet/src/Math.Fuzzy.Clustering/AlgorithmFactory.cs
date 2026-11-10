@@ -1,5 +1,6 @@
 using MathFuzzy.Clustering.Algorithms.DimensionReduction;
 using MathFuzzy.Clustering.Algorithms.Hierarchical;
+using MathFuzzy.Clustering.Algorithms.Intuitionistic;
 using MathFuzzy.Clustering.Algorithms.Prototype;
 using MathFuzzy.Clustering.Algorithms.Relational;
 using MathFuzzy.Clustering.Results;
@@ -7,6 +8,7 @@ using MathFuzzy.Core.Aggregation.Taga;
 using MathFuzzy.Core.AlphaSelection;
 using MathFuzzy.Core.Criteria;
 using MathFuzzy.Core.Distance;
+using MathFuzzy.Core.Intuitionistic;
 using MathFuzzy.Core.Matrix;
 using MathFuzzy.Core.Normalization;
 
@@ -15,13 +17,15 @@ namespace MathFuzzy.Clustering;
 /// <summary>
 /// Resolves clustering algorithm instances from string keys.
 /// Accepted keys (case-insensitive): dafc, dafc-u, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc,
-/// dafc-taga, dafc-taga-alpha, dpafc-taga, hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr.
+/// dafc-taga, dafc-taga-alpha, dpafc-taga, hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr;
+/// for intuitionistic fuzzy data (see <see cref="RunIntuitionistic(string, IntuitionisticToleranceMatrix, AlgorithmOptions, CancellationToken)"/>):
+/// dpaifc, daifc, dpaifc-tc.
 /// </summary>
 public static class AlgorithmFactory
 {
     private const string ValidKeys =
         "dafc, dafc-u, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc, dafc-taga, dafc-taga-alpha, dpafc-taga, " +
-        "hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr";
+        "hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr, dpaifc, daifc, dpaifc-tc";
 
     private static readonly string[] AllKeys = ValidKeys.Split(", ");
 
@@ -67,10 +71,72 @@ public static class AlgorithmFactory
         return RunOnTolerance(key, tolerance, normalizedData: null, options, ct);
     }
 
+    /// <summary>True for the algorithms that work on intuitionistic fuzzy data: dpaifc, daifc, dpaifc-tc.</summary>
+    public static bool IsIntuitionistic(string algorithm) =>
+        algorithm.ToLowerInvariant().Trim() is "dpaifc" or "daifc" or "dpaifc-tc";
+
+    /// <summary>
+    /// Runs an intuitionistic algorithm on an intuitionistic fuzzy tolerance given directly
+    /// (a membership and a non-membership matrix). For <c>dpaifc-tc</c> the relation is first
+    /// replaced by its transitive closure.
+    /// </summary>
+    public static IReadOnlyList<ClusterResult> RunIntuitionistic(
+        string algorithm, IntuitionisticToleranceMatrix relation, AlgorithmOptions options, CancellationToken ct = default)
+    {
+        var settings = IntuitionisticSettings(options);
+        return NormalizeKey(algorithm) switch
+        {
+            "dpaifc"    => new DPaifcAlgorithm(settings).Run(relation, ct),
+            "daifc"     => new DAifcAlgorithm(RequiredClusterCount(options), settings).Run(relation, ct),
+            "dpaifc-tc" => new DPaifcTcAlgorithm(ParseMeasure(options.IntuitionisticMeasure), settings).Run(relation, ct),
+            var key     => throw new ArgumentException(
+                               $"Algorithm '{key}' does not work on intuitionistic fuzzy data. Use dpaifc, daifc or dpaifc-tc.")
+        };
+    }
+
+    /// <summary>
+    /// Runs an intuitionistic algorithm on intuitionistic attribute data: the tolerance is built
+    /// with the similarity measure named in the options (hamming by default).
+    /// </summary>
+    public static IReadOnlyList<ClusterResult> RunIntuitionistic(
+        string algorithm, IntuitionisticDataMatrix data, AlgorithmOptions options, CancellationToken ct = default)
+    {
+        var measure = ParseMeasure(options.IntuitionisticMeasure);
+        if (NormalizeKey(algorithm) == "dpaifc-tc")
+            return new DPaifcTcAlgorithm(measure, IntuitionisticSettings(options)).Run(data, ct);
+        return RunIntuitionistic(algorithm, IntuitionisticSimilarity.BuildTolerance(data, measure), options, ct);
+    }
+
+    private static int RequiredClusterCount(AlgorithmOptions options) =>
+        options.ClusterCount ?? throw new ArgumentException("D-AIFC(c) needs the number of clusters (--clusters).");
+
+    private static IntuitionisticOptions IntuitionisticSettings(AlgorithmOptions options) => new(
+        ScanOrder: options.ThresholdScanOrder?.ToLowerInvariant().Trim() switch
+        {
+            null or "" or "beta-inner" => ThresholdScanOrder.BetaInner,
+            "beta-outer"               => ThresholdScanOrder.BetaOuter,
+            var other => throw new ArgumentException($"Unknown scan order: '{other}'. Valid names: beta-inner, beta-outer")
+        },
+        MaxSearchNodes: options.MaxSearchNodes,
+        MaxResults: options.MaxResults,
+        Diagnostics: options.Diagnostics);
+
+    private static IntuitionisticMeasure ParseMeasure(string? name) => name?.ToLowerInvariant().Trim() switch
+    {
+        null or "" or "hamming" => IntuitionisticMeasure.Hamming,
+        "euclidean"             => IntuitionisticMeasure.Euclidean,
+        var other => throw new ArgumentException($"Unknown intuitionistic measure: '{other}'. Valid names: hamming, euclidean")
+    };
+
     private static IReadOnlyList<ClusterResult> RunOnTolerance(
         string key, FuzzyToleranceMatrix tolerance, RawDataMatrix? normalizedData,
         AlgorithmOptions options, CancellationToken ct)
     {
+        if (IsIntuitionistic(key))
+            throw new ArgumentException(
+                $"Algorithm '{key}' needs intuitionistic fuzzy data: a membership and a non-membership matrix, " +
+                "or attribute data given as (membership, non-membership) pairs.");
+
         var builder   = CreateToleranceBuilder(options);   // used by the data entry points of the algorithms
         var closure   = new MaxMinTransitiveClosure();
         var criterion = CreateCriterion(options.Criterion);
@@ -180,8 +246,20 @@ public static class AlgorithmFactory
             if (isSet) problems.Add($"{option} does not apply to '{key}' (it is used by {usedBy})");
         }
 
-        if (key is not ("dafc" or "dafc-tc"))
-            Reject(options.ClusterCount.HasValue, "the number of clusters", "dafc, dafc-tc");
+        if (key is not ("dafc" or "dafc-tc" or "daifc"))
+            Reject(options.ClusterCount.HasValue, "the number of clusters", "dafc, dafc-tc, daifc");
+        if (IsIntuitionistic(key))
+        {
+            Reject(options.MinClusterPower != 1 || options.MaxClusterPower != 0, "a bound on the cluster size", "the crisp-relation algorithms");
+            Reject(options.Accuracy.HasValue, "the accuracy threshold", "the crisp-relation algorithms");
+        }
+        else
+        {
+            Reject(!string.IsNullOrEmpty(options.ThresholdScanOrder), "the scan order of the thresholds", "dpaifc, daifc, dpaifc-tc");
+            Reject(!string.IsNullOrEmpty(options.IntuitionisticMeasure), "the intuitionistic similarity measure", "dpaifc, daifc, dpaifc-tc");
+        }
+        if (key == "daifc" && !options.ClusterCount.HasValue)
+            problems.Add("'daifc' needs the number of clusters");
         if (key is not ("dafc" or "dafc-tc-alpha" or "dafc-taga-alpha"))
             Reject(options.UserAlpha.HasValue, "the threshold α", "dafc, dafc-tc-alpha, dafc-taga-alpha");
         if (key is not ("dafc" or "dafc-u" or "dpafc"))
@@ -338,5 +416,15 @@ public sealed record AlgorithmOptions(
     /// <summary>Largest number of allotments returned, best first.</summary>
     int MaxResults          = 200,
     /// <summary>Optional collector of search statistics (node count, budget exhaustion).</summary>
-    SearchDiagnostics? Diagnostics = null
+    SearchDiagnostics? Diagnostics = null,
+    /// <summary>
+    /// Intuitionistic algorithms: order of the scan over the pairs of thresholds,
+    /// <c>beta-inner</c> (default) or <c>beta-outer</c>.
+    /// </summary>
+    string? ThresholdScanOrder = null,
+    /// <summary>
+    /// Intuitionistic algorithms on attribute data: similarity measure that builds the tolerance,
+    /// <c>hamming</c> (default) or <c>euclidean</c>.
+    /// </summary>
+    string? IntuitionisticMeasure = null
 );

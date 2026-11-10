@@ -41,6 +41,17 @@ These files contain an $n \times n$ fuzzy tolerance matrix and are the **direct 
 | `tamura_16.csv` | 16 | 3 families | Tamura, Higuchi and Tanaka's (1971) subjective similarity of 16 portraits from three families, as printed in Viattchenin (2013, Table 2.4). Used for D-PAFC and D-AFC(u). |
 | `dave_sen_fruit.csv` | 7 | 2 | Dave & Sen fruit dataset (tolerance matrix over 7 fruit objects). |
 
+## Intuitionistic fuzzy data
+
+Input of the intuitionistic algorithms D-PAIFC, D-AIFC(c) and D-PAIFC-TC. A tolerance is given as two $n \times n$ matrices, memberships and non-memberships, passed with `--input` and `--nonmembership`; attribute data are one CSV whose numeric columns come in pairs (membership, non-membership) per attribute, from which the tolerance is built by a similarity measure (`--ifs-measure`).
+
+| File | n | m | Description |
+|---|---|---|---|
+| `hung_ifs_membership.csv` | 10 | — | Matrix of memberships of the intuitionistic fuzzy tolerance of Hung, Lee and Fuh (10 objects `x1`–`x10`). With the next file, the input of the published D-PAIFC example (`--scan-order beta-outer`: $(\alpha, \beta) = (0.8, 0.2)$) and of D-AIFC(c). |
+| `hung_ifs_nonmembership.csv` | 10 | — | Matrix of non-memberships of the same relation. |
+| `cars5_ifs.csv` | 5 | 6 (pairs $\mu$, $\nu$) | Five cars described by six intuitionistic fuzzy attributes (columns `f1_mu,f1_nu,…,f6_mu,f6_nu`). Published example of the closure-based algorithm D-PAIFC-TC. |
+| `cars10_ifs.csv` | 10 | 6 (pairs $\mu$, $\nu$) | Ten cars described by the same six intuitionistic fuzzy attributes. Published example of D-PAIFC-TC: four clusters at $(\alpha, \beta) = (0.4833, 0.1667)$. |
+
 ## Recommended algorithm → dataset pairings
 
 | Algorithm | Recommended datasets |
@@ -53,6 +64,8 @@ These files contain an $n \times n$ fuzzy tolerance matrix and are the **direct 
 | D-AFC-TAGA, D-PAFC-TAGA | `wine`, `glass`, `seeds` |
 | H-AFC-TC (hierarchical) | `iris`, `ruspini`, `seeds` |
 | D-PAFC-DR (dimension reduction) | `wine` (13D), `glass` (9D) |
+| D-PAIFC, D-AIFC(c) | `hung_ifs_membership` with `hung_ifs_nonmembership` |
+| D-PAIFC-TC | `cars5_ifs`, `cars10_ifs` |
 
 ## Additional labeled benchmarks (added 2026-10-27)
 

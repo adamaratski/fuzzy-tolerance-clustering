@@ -2,8 +2,10 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using MathFuzzy.Clustering;
+using MathFuzzy.Clustering.Algorithms.Intuitionistic;
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Clustering.Validation;
+using MathFuzzy.Core.Intuitionistic;
 using MathFuzzy.Core.IO;
 using MathFuzzy.Core.Matrix;
 using MathFuzzy.Inference.Generation;
@@ -34,6 +36,26 @@ internal static class ClusterHandler
         if (request.Top < 1)
             throw new ArgumentException("--top must be at least 1.");
 
+        bool intuitionistic = AlgorithmFactory.IsIntuitionistic(request.Algorithm);
+        if (intuitionistic)
+        {
+            if (request.InputIsMatrix)
+                throw new ArgumentException(
+                    "An intuitionistic fuzzy tolerance is given as two matrices: --input <membership> --nonmembership <non-membership> (without --matrix).");
+            if (request.MatrixBuildOptionsGiven.Count > 0)
+                throw new ArgumentException(
+                    $"{string.Join(", ", request.MatrixBuildOptionsGiven)}: such options do not apply to intuitionistic fuzzy data; " +
+                    "the tolerance of intuitionistic attribute data is built with --ifs-measure.");
+            if (request.Rules is not null)
+                throw new ArgumentException("--rules is not available for the intuitionistic algorithms.");
+            if (request.NonMembership is not null && request.IntuitionisticMeasure is not null)
+                throw new ArgumentException("--ifs-measure builds a tolerance from attribute data and cannot be combined with --nonmembership.");
+        }
+        else if (request.NonMembership is not null)
+        {
+            throw new ArgumentException("--nonmembership applies to the intuitionistic algorithms only (dpaifc, daifc, dpaifc-tc).");
+        }
+
         var diagnostics = new SearchDiagnostics();
         var options = new AlgorithmOptions(
             Distance:         request.Distance,
@@ -47,14 +69,26 @@ internal static class ClusterHandler
             Criterion:        request.Criterion,
             Accuracy:         request.Accuracy,
             MaxIntersections: request.Intersections,
-            MaxSearchNodes:   request.MaxNodes,
+            // the intuitionistic search has its own, smaller default budget
+            MaxSearchNodes:   intuitionistic && !request.MaxNodesGiven ? new IntuitionisticOptions().MaxSearchNodes : request.MaxNodes,
             MaxResults:       request.Top,
-            Diagnostics:      diagnostics);
+            Diagnostics:      diagnostics,
+            ThresholdScanOrder:    request.ScanOrder,
+            IntuitionisticMeasure: request.IntuitionisticMeasure);
         AlgorithmFactory.EnsureOptionsApply(request.Algorithm, options);
 
         DataFile? file = null;
         IReadOnlyList<ClusterResult> results;
-        if (request.InputIsMatrix)
+        if (intuitionistic)
+        {
+            results = request.NonMembership is not null
+                ? AlgorithmFactory.RunIntuitionistic(
+                      request.Algorithm,
+                      IntuitionisticToleranceMatrix.FromCsv(request.Input.FullName, request.NonMembership.FullName), options, ct)
+                : AlgorithmFactory.RunIntuitionistic(
+                      request.Algorithm, IntuitionisticDataMatrix.FromCsv(request.Input.FullName), options, ct);
+        }
+        else if (request.InputIsMatrix)
         {
             var tolerance = FuzzyToleranceMatrix.FromCsv(request.Input.FullName);
             results = AlgorithmFactory.Run(request.Algorithm, tolerance, options, ct);
@@ -127,11 +161,13 @@ internal static class ClusterHandler
         bool hasTb = results.Any(r => r.TiebreakerScore.HasValue);
         string criterionName = results[0].CriterionName;
 
+        bool hasBeta = results[0].Beta.HasValue;
+        string betaHeader = hasBeta ? $"{"Beta",-8} " : "";
         if (hasTb)
-            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {criterionName,-10} {"Dist↓",-8} Centers                  Sizes");
+            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {betaHeader}{criterionName,-10} {"Dist↓",-8} Centers                  Sizes");
         else
-            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {criterionName,-10} Centers                  Sizes");
-        sb.AppendLine(new string('-', hasTb ? 88 : 80));
+            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {betaHeader}{criterionName,-10} Centers                  Sizes");
+        sb.AppendLine(new string('-', (hasTb ? 88 : 80) + (hasBeta ? 9 : 0)));
 
         int rank = 1;
         foreach (var r in results)
@@ -141,14 +177,18 @@ internal static class ClusterHandler
             string tbCol   = hasTb
                 ? $"{(r.TiebreakerScore.HasValue ? r.TiebreakerScore.Value.ToString("F4") : "—"),-8} "
                 : "";
-            sb.AppendLine($"{rank,-4} {r.ClusterCount,-4} {r.Alpha,-8:F4} {r.Score,-10:F4} {tbCol}{centers,-25} [{sizes}]");
+            string betaCol = hasBeta ? $"{r.Beta!.Value,-8:F4} " : "";
+            sb.AppendLine($"{rank,-4} {r.ClusterCount,-4} {r.Alpha,-8:F4} {betaCol}{r.Score,-10:F4} {tbCol}{centers,-25} [{sizes}]");
             rank++;
             if (rank > 20 && results.Count > 20) { sb.AppendLine($"  ... ({results.Count - 20} more; use --format json or csv for all)"); break; }
         }
 
         var best = results[0];
         sb.AppendLine();
-        sb.AppendLine($"Best: c={best.ClusterCount}, α={best.Alpha:F4}, {criterionName}={best.Score:F4}" +
+        sb.AppendLine($"Best: c={best.ClusterCount}, α={best.Alpha:F4}, " +
+                      (hasBeta ? $"β={best.Beta!.Value:F4}, " : "") +
+                      (best.IntersectionBound is int bound ? $"w={bound}, " : "") +
+                      $"{criterionName}={best.Score:F4}" +
                       (best.TiebreakerScore.HasValue ? $", Dist↓={best.TiebreakerScore.Value:F4}" : "") +
                       (best.IntersectionCount > 0 ? $", objects in intersections: {best.IntersectionCount}" : ""));
         for (int i = 0; i < best.MemberSets.Length; i++)
@@ -157,12 +197,24 @@ internal static class ClusterHandler
             sb.AppendLine($"  Cluster {i + 1} (center={best.Centers[i]}){majority}: [{string.Join(",", best.MemberSets[i])}]");
         }
 
-        var measures = AllotmentMeasures.Compute(best);
-        sb.AppendLine();
-        sb.AppendLine("Validity measures of the best allotment:");
-        sb.AppendLine($"  Linear fuzziness V_LMF          {measures.LinearFuzziness:F6}");
-        sb.AppendLine($"  Quadratic fuzziness V_QMF       {measures.QuadraticFuzziness:F6}");
-        sb.AppendLine($"  Separation and compactness V_MSC {measures.SeparationCompactness:F6}");
+        if (hasBeta)
+        {
+            // the original algorithms require a unique maximiser of the criterion
+            if (ClusterResult.DescribeTie(results) is { } tie)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"Note: {tie}");
+            }
+        }
+        else
+        {
+            var measures = AllotmentMeasures.Compute(best);
+            sb.AppendLine();
+            sb.AppendLine("Validity measures of the best allotment:");
+            sb.AppendLine($"  Linear fuzziness V_LMF          {measures.LinearFuzziness:F6}");
+            sb.AppendLine($"  Quadratic fuzziness V_QMF       {measures.QuadraticFuzziness:F6}");
+            sb.AppendLine($"  Separation and compactness V_MSC {measures.SeparationCompactness:F6}");
+        }
 
         if (ext is not null)
         {
@@ -224,6 +276,12 @@ internal static class ClusterHandler
                 ["clusters"]       = r.MemberSets
             };
             if (levelValidation is not null) result["validation"] = ValidationDto(levelValidation[index]);
+            if (r.Beta.HasValue)
+            {
+                result["beta"] = r.Beta;
+                result["intersectionBound"] = r.IntersectionBound;
+                return result;
+            }
             var measures = AllotmentMeasures.Compute(r);
             result["measures"] = new
             {
@@ -255,13 +313,15 @@ internal static class ClusterHandler
     {
         var sb = new StringBuilder();
         bool hasTb = results.Any(r => r.TiebreakerScore.HasValue);
-        sb.AppendLine(hasTb ? "rank,c,alpha,score,dist_tiebreaker,centers,sizes" : "rank,c,alpha,score,centers,sizes");
+        bool hasBeta = results.Any(r => r.Beta.HasValue);
+        string betaHeader = hasBeta ? "beta," : "";
+        sb.AppendLine(hasTb ? $"rank,c,alpha,{betaHeader}score,dist_tiebreaker,centers,sizes" : $"rank,c,alpha,{betaHeader}score,centers,sizes");
         int rank = 1;
         foreach (var r in results)
         {
             string tbField = hasTb ? $",{(r.TiebreakerScore.HasValue ? r.TiebreakerScore.Value.ToString("F6", CultureInfo.InvariantCulture) : "")}" : "";
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                $"{rank},{r.ClusterCount},{r.Alpha:F6},{r.Score:F6}{tbField},\"{string.Join(";", r.Centers)}\",\"{string.Join(";", r.MemberSets.Select(s => s.Length))}\""));
+                $"{rank},{r.ClusterCount},{r.Alpha:F6},{(hasBeta ? $"{r.Beta:F6}," : "")}{r.Score:F6}{tbField},\"{string.Join(";", r.Centers)}\",\"{string.Join(";", r.MemberSets.Select(s => s.Length))}\""));
             rank++;
         }
         return sb.ToString();

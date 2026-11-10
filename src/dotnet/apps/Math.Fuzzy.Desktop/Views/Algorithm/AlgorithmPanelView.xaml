@@ -62,6 +62,17 @@
                 </ComboBox>
                 <ComboBox Grid.Column="1"
                           AutomationProperties.Name="Algorithm variant"
+                          ItemsSource="{Binding IntuitionisticVariants}"
+                          SelectedItem="{Binding SelectedVariant}"
+                          Visibility="{Binding IsIntuitionistic, Converter={StaticResource BoolToVisibility}}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <ComboBox Grid.Column="1"
+                          AutomationProperties.Name="Algorithm variant"
                           ItemsSource="{Binding ReductionVariants}"
                           SelectedItem="{Binding SelectedVariant}"
                           Visibility="{Binding IsReduction, Converter={StaticResource BoolToVisibility}}">
@@ -78,7 +89,8 @@
         </StackPanel>
 
         <!-- 2-column param rows: label (left) | control (right) ───── -->
-        <Grid>
+        <!-- distance, normalisation, criterion and accuracy apply to ordinary attribute data only -->
+        <Grid Visibility="{Binding UsesAttributeDistance, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="74"/>
                 <ColumnDefinition Width="*"/>
@@ -92,7 +104,6 @@
                 <RowDefinition Height="10"/>
                 <RowDefinition Height="Auto"/>   <!-- 6  Accuracy ε    -->
                 <RowDefinition Height="10"/>
-                <RowDefinition Height="Auto"/>   <!-- 8  Max results   -->
             </Grid.RowDefinitions>
 
             <!-- Distance -->
@@ -140,11 +151,17 @@
                      Style="{StaticResource ParamValueEditable}"
                      ToolTip="Round T to multiples of ε before building α-levels (e.g. 0.0001). Empty = full precision."/>
 
-            <TextBlock Grid.Row="8" Grid.Column="0"
+        </Grid>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
                        Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center"
                        Text="Max results"/>
-            <TextBox Grid.Row="8" Grid.Column="1"
+            <TextBox Grid.Column="1"
                      AutomationProperties.Name="Max results"
                      Text="{Binding MaxResults, UpdateSourceTrigger=PropertyChanged}"
                      Style="{StaticResource ParamValueEditable}"/>
@@ -172,7 +189,7 @@
             </ContentControl.Resources>
         </ContentControl>
 
-        <!-- Clusters c (D-AFC only) -->
+        <!-- Clusters c (D-AFC and D-AIFC(c)) -->
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowClusterCount, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
@@ -185,7 +202,37 @@
                      AutomationProperties.Name="Clusters c"
                      Text="{Binding ClusterCountText, UpdateSourceTrigger=PropertyChanged}"
                      Style="{StaticResource ParamValueEditable}"
-                     ToolTip="Number of clusters c (integer ≥ 2), required by D-AFC."/>
+                     ToolTip="Number of clusters c (integer ≥ 2), required by D-AFC and D-AIFC(c)."/>
+        </Grid>
+
+        <!-- Intuitionistic algorithms: scan order of the threshold pairs and similarity measure -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding IsIntuitionistic, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="Scan"/><LineBreak/><Run Text="order"/>
+            </TextBlock>
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      AutomationProperties.Name="Scan order"
+                      ItemsSource="{Binding ScanOrders}"
+                      SelectedItem="{Binding SelectedScanOrder}"
+                      ToolTip="Order in which the pairs of thresholds (α, β) are scanned. β inner: the order of the printed algorithms. β outer: reproduces the published D-PAIFC result on Hung's relation."/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource ParamLabel}"
+                       TextWrapping="Wrap" VerticalAlignment="Center" Text="Measure"/>
+            <ComboBox Grid.Row="2" Grid.Column="1"
+                      AutomationProperties.Name="Intuitionistic measure"
+                      ItemsSource="{Binding IfsMeasures}"
+                      SelectedItem="{Binding SelectedIfsMeasure}"
+                      ToolTip="Similarity measure that builds the intuitionistic tolerance from intuitionistic attribute data. Not used when the relation was opened as two matrices."/>
         </Grid>
 
         <!-- Maximal cluster size u (D-AFC(u)) -->

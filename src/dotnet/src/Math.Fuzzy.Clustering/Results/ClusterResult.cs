@@ -14,11 +14,54 @@ public sealed record ClusterResult(
     /// centroid, computed in the normalised feature space. Lower = more compact solution.
     /// Populated by D-AFC-TC; null for all other algorithms.
     /// </summary>
-    double? TiebreakerScore = null
+    double? TiebreakerScore = null,
+    /// <summary>
+    /// Intuitionistic algorithms only: the threshold β on the non-membership degrees
+    /// (<see cref="Alpha"/> is then the threshold on the membership degrees). Null otherwise.
+    /// </summary>
+    double? Beta = null,
+    /// <summary>
+    /// Intuitionistic algorithms only: non-membership degrees, [object, cluster], zero outside
+    /// the carrier of the cluster. Null otherwise.
+    /// </summary>
+    double[,]? NonMembership = null,
+    /// <summary>
+    /// Intuitionistic algorithms only: the bound w on the number of objects shared by two
+    /// clusters under which the allotment was constructed. Null otherwise.
+    /// </summary>
+    int? IntersectionBound = null
 )
 {
     public static ClusterResult Empty { get; } =
         new(0, 0, [], [], new double[0, 0], double.NegativeInfinity, "");
+
+    /// <summary>
+    /// True when the other result consists of the same clusters as sets of objects; the typical
+    /// points, and hence the membership degrees, may differ.
+    /// </summary>
+    public bool HasSameClusters(ClusterResult other)
+    {
+        if (other.MemberSets.Length != MemberSets.Length) return false;
+        static string[] Keys(int[][] sets) =>
+            [.. sets.Select(set => string.Join(',', set.Order())).Order(StringComparer.Ordinal)];
+        return Keys(MemberSets).SequenceEqual(Keys(other.MemberSets));
+    }
+
+    /// <summary>
+    /// Describes a tie at the top of a ranked list: how many results share the best value of the
+    /// criterion (and of the tie-breaker), and whether they differ in the clusters or only in the
+    /// typical points. Null when the best result is unique.
+    /// </summary>
+    public static string? DescribeTie(IReadOnlyList<ClusterResult> ranked)
+    {
+        if (ranked.Count < 2) return null;
+        var best = ranked[0];
+        var tied = ranked.Where(result => result.Score == best.Score && result.TiebreakerScore == best.TiebreakerScore).ToList();
+        if (tied.Count < 2) return null;
+        return tied.All(best.HasSameClusters)
+            ? $"{tied.Count} choices of typical points share the largest value of the criterion; the clusters are the same."
+            : $"{tied.Count} allotments share the largest value of the criterion; the result is not unique.";
+    }
 
     /// <summary>
     /// Deterministic total order of results: higher score first, then (when the

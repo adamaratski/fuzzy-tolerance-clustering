@@ -23,6 +23,12 @@ public interface IWorkspaceService
     /// <summary>Loads a pre-built n×n tolerance matrix as a new workset and activates it.</summary>
     Workset LoadMatrix(string path);
 
+    /// <summary>Loads an intuitionistic fuzzy tolerance from a membership and a non-membership matrix file.</summary>
+    Workset LoadIntuitionisticRelation(string membershipPath, string nonMembershipPath);
+
+    /// <summary>Loads intuitionistic attribute data (columns in pairs: membership, non-membership).</summary>
+    Workset LoadIntuitionisticData(string path);
+
     /// <summary>Switches the active workset. Fires <see cref="DataChanged"/>.</summary>
     void Activate(Workset workset);
 
