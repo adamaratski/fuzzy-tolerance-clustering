@@ -115,8 +115,7 @@ Tests
 - 27 new tests for the intuitionistic algorithms; nine runs on intuitionistic data in
   `results/reproduce.py` (55 runs in all).
 - Six runs of the transitive opening, partial supervision and the interval, three-way and
-  asymmetric inputs in `results/reproduce.py` (61 runs in all). The test suite has 478 tests
-  (one skipped on purpose).
+  asymmetric inputs in `results/reproduce.py` (61 runs in all). The test suite has 478 tests.
 
 Other
 - MATLAB / GNU Octave toolbox rewritten to follow the algorithms (D-AFC(c), D-PAFC, D-AFC-TC,
