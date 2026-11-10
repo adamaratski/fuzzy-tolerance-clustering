@@ -3,6 +3,7 @@ using MathFuzzy.Clustering.Algorithms.Hierarchical;
 using MathFuzzy.Clustering.Algorithms.Intuitionistic;
 using MathFuzzy.Clustering.Algorithms.Prototype;
 using MathFuzzy.Clustering.Algorithms.Relational;
+using MathFuzzy.Clustering.Algorithms.Supervision;
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Core.Aggregation.Taga;
 using MathFuzzy.Core.AlphaSelection;
@@ -26,8 +27,8 @@ public static class AlgorithmFactory
 {
     private const string ValidKeys =
         "dafc, dafc-u, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc, dafc-taga, dafc-taga-alpha, dpafc-taga, " +
-        "dafc-to, dafc-to-alpha, dpafc-to, " +
-        "hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr, dpaifc, daifc, dpaifc-tc";
+        "dafc-to, dafc-to-alpha, dpafc-to, dafc-ps, " +
+        "hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr, dpaifc, daifc, dpaifc-tc, daifc-ps";
 
     private static readonly string[] AllKeys = ValidKeys.Split(", ");
 
@@ -75,7 +76,7 @@ public static class AlgorithmFactory
 
     /// <summary>True for the algorithms that work on intuitionistic fuzzy data: dpaifc, daifc, dpaifc-tc.</summary>
     public static bool IsIntuitionistic(string algorithm) =>
-        algorithm.ToLowerInvariant().Trim() is "dpaifc" or "daifc" or "dpaifc-tc";
+        algorithm.ToLowerInvariant().Trim() is "dpaifc" or "daifc" or "dpaifc-tc" or "daifc-ps";
 
     /// <summary>
     /// Runs an intuitionistic algorithm on an intuitionistic fuzzy tolerance given directly
@@ -91,8 +92,10 @@ public static class AlgorithmFactory
             "dpaifc"    => new DPaifcAlgorithm(settings).Run(relation, ct),
             "daifc"     => new DAifcAlgorithm(RequiredClusterCount(options), settings).Run(relation, ct),
             "dpaifc-tc" => new DPaifcTcAlgorithm(ParseMeasure(options.IntuitionisticMeasure), settings).Run(relation, ct),
+            "daifc-ps"  => new DAifcPsAlgorithm(RequiredClusterCount(options), IntuitionisticLabels(options), settings,
+                                                ParseSupervisionRule(options.SupervisionRule)).Run(relation, ct),
             var key     => throw new ArgumentException(
-                               $"Algorithm '{key}' does not work on intuitionistic fuzzy data. Use dpaifc, daifc or dpaifc-tc.")
+                               $"Algorithm '{key}' does not work on intuitionistic fuzzy data. Use dpaifc, daifc, dpaifc-tc or daifc-ps.")
         };
     }
 
@@ -108,6 +111,25 @@ public static class AlgorithmFactory
             return new DPaifcTcAlgorithm(measure, IntuitionisticSettings(options)).Run(data, ct);
         return RunIntuitionistic(algorithm, IntuitionisticSimilarity.BuildTolerance(data, measure), options, ct);
     }
+
+    private static IReadOnlyList<LabelSpec> RequiredLabels(AlgorithmOptions options) =>
+        options.Labels is { Count: > 0 } labels
+            ? labels
+            : throw new ArgumentException("The algorithms with partial supervision need labelled objects (--label).");
+
+    private static IReadOnlyList<IntuitionisticLabelledObject> IntuitionisticLabels(AlgorithmOptions options) =>
+        [.. RequiredLabels(options).Select(label => new IntuitionisticLabelledObject(
+            label.ObjectIndex, label.Membership,
+            label.NonMembership ?? throw new ArgumentException(
+                $"The labelled object {label.ObjectIndex + 1} needs a non-membership grade for D-AIFC-PS(c): --label object:y:f."),
+            label.Class))];
+
+    private static SupervisedIntersectionRule ParseSupervisionRule(string? name) => name?.ToLowerInvariant().Trim() switch
+    {
+        null or "" or "step10" => SupervisedIntersectionRule.AtCurrentPair,
+        "full-scan"            => SupervisedIntersectionRule.AfterFullScan,
+        var other => throw new ArgumentException($"Unknown rule for the intersection bound: '{other}'. Valid names: step10, full-scan")
+    };
 
     private static int RequiredClusterCount(AlgorithmOptions options) =>
         options.ClusterCount ?? throw new ArgumentException("D-AIFC(c) needs the number of clusters (--clusters).");
@@ -166,6 +188,24 @@ public static class AlgorithmFactory
                                     LevelProgress:    options.LevelProgress,
                                     Diagnostics:      options.Diagnostics),
                     selector, criterion).Run(tolerance, ct);
+            }
+
+            case "dafc-ps":
+            {
+                int clusterCount = options.ClusterCount
+                    ?? throw new ArgumentException("D-AFC-PS(c) needs the number of clusters (--clusters).");
+                var labels = RequiredLabels(options);
+                if (labels.Any(label => label.NonMembership.HasValue))
+                    throw new ArgumentException("D-AFC-PS(c) takes a membership grade only: --label object:y.");
+                return new DAfcPsAlgorithm(
+                    new DAfcOptions(clusterCount, minPower, maxPower,
+                                    MaxIntersections: options.MaxIntersections ?? DAfcOptions.AutoIntersections,
+                                    MaxCombinations:  options.MaxSearchNodes,
+                                    MaxResults:       options.MaxResults,
+                                    LevelProgress:    options.LevelProgress,
+                                    Diagnostics:      options.Diagnostics),
+                    [.. labels.Select(label => new LabelledObject(label.ObjectIndex, label.Membership, label.Class))],
+                    AllDistinctAlphaSelector.Instance, criterion).Run(tolerance, ct);
             }
 
             case "dafc-u":
@@ -266,8 +306,17 @@ public static class AlgorithmFactory
             if (isSet) problems.Add($"{option} does not apply to '{key}' (it is used by {usedBy})");
         }
 
-        if (key is not ("dafc" or "dafc-tc" or "daifc"))
-            Reject(options.ClusterCount.HasValue, "the number of clusters", "dafc, dafc-tc, daifc");
+        if (key is not ("dafc" or "dafc-tc" or "daifc" or "dafc-ps" or "daifc-ps"))
+            Reject(options.ClusterCount.HasValue, "the number of clusters", "dafc, dafc-tc, daifc, dafc-ps, daifc-ps");
+        if (key is not ("dafc-ps" or "daifc-ps"))
+            Reject(options.Labels is { Count: > 0 }, "labelled objects", "dafc-ps, daifc-ps");
+        else
+        {
+            if (!options.ClusterCount.HasValue) problems.Add($"'{key}' needs the number of clusters");
+            if (options.Labels is not { Count: > 0 }) problems.Add($"'{key}' needs labelled objects");
+        }
+        if (key != "daifc-ps")
+            Reject(!string.IsNullOrEmpty(options.SupervisionRule), "the rule for the intersection bound", "daifc-ps");
         if (IsIntuitionistic(key))
         {
             Reject(options.MinClusterPower != 1 || options.MaxClusterPower != 0, "a bound on the cluster size", "the crisp-relation algorithms");
@@ -284,8 +333,8 @@ public static class AlgorithmFactory
             Reject(options.UserAlpha.HasValue, "the threshold α", "dafc, dafc-tc-alpha, dafc-taga-alpha, dafc-to-alpha");
         if (key is not ("dafc-to" or "dafc-to-alpha" or "dpafc-to"))
             Reject(!string.IsNullOrEmpty(options.OpeningMethod), "the method of the transitive opening", "dafc-to, dafc-to-alpha, dpafc-to");
-        if (key is not ("dafc" or "dafc-u" or "dpafc"))
-            Reject(options.MaxIntersections.HasValue, "the intersection bound w", "dafc, dafc-u, dpafc");
+        if (key is not ("dafc" or "dafc-u" or "dpafc" or "dafc-ps"))
+            Reject(options.MaxIntersections.HasValue, "the intersection bound w", "dafc, dafc-u, dpafc, dafc-ps");
         if (key == "dafc-u" && options.MaxClusterPower < 1)
             problems.Add("'dafc-u' needs the maximal number of objects in a cluster");
         if (!key.Contains("taga"))
@@ -396,6 +445,41 @@ public static class AlgorithmFactory
     /// construction that reproduces the published example, or <c>single-linkage-order</c>, the
     /// cited algorithm with the bound that keeps its result transitive.
     /// </summary>
+    /// <summary>
+    /// Reads a labelled object written as <c>object:y</c> or <c>object:y:f</c>, optionally followed
+    /// by <c>@class</c>: the 1-based number of the object, its membership grade, for intuitionistic
+    /// data its non-membership grade, and the number of its class when several labelled objects
+    /// belong to one class.
+    /// </summary>
+    public static LabelSpec ParseLabel(string text)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        string body = text.Trim();
+        int? labelClass = null;
+        int classMark = body.IndexOf('@');
+        if (classMark >= 0)
+        {
+            if (!int.TryParse(body[(classMark + 1)..], System.Globalization.NumberStyles.Integer, culture, out int parsedClass))
+                throw new ArgumentException($"Label '{text}': the class after '@' must be an integer.");
+            labelClass = parsedClass;
+            body = body[..classMark];
+        }
+        string[] parts = body.Split(':');
+        if (parts.Length is < 2 or > 3
+            || !int.TryParse(parts[0], System.Globalization.NumberStyles.Integer, culture, out int objectNumber)
+            || !double.TryParse(parts[1], System.Globalization.NumberStyles.Float, culture, out double membership))
+            throw new ArgumentException($"Label '{text}': expected object:y or object:y:f, for example 3:0.9 or 3:0.9:0.1.");
+        double? nonMembership = null;
+        if (parts.Length == 3)
+        {
+            if (!double.TryParse(parts[2], System.Globalization.NumberStyles.Float, culture, out double parsedNonMembership))
+                throw new ArgumentException($"Label '{text}': the non-membership grade is not a number.");
+            nonMembership = parsedNonMembership;
+        }
+        if (objectNumber < 1) throw new ArgumentException($"Label '{text}': objects are numbered from 1.");
+        return new LabelSpec(objectNumber - 1, membership, nonMembership, labelClass);
+    }
+
     public static TransitiveOpening BuildOpening(string? method) => method?.ToLowerInvariant().Trim() switch
     {
         null or "" or "complete-linkage" => new TransitiveOpening(TransitiveOpeningMethod.CompleteLinkage),
@@ -466,5 +550,19 @@ public sealed record AlgorithmOptions(
     /// TO algorithms: how the transitive opening is computed, <c>complete-linkage</c> (default) or
     /// <c>single-linkage-order</c>.
     /// </summary>
-    string? OpeningMethod = null
+    string? OpeningMethod = null,
+    /// <summary>Algorithms with partial supervision: the labelled objects.</summary>
+    IReadOnlyList<LabelSpec>? Labels = null,
+    /// <summary>
+    /// D-AIFC-PS(c): when the intersection bound is raised, <c>step10</c> (default, at the current
+    /// pair of thresholds, as printed) or <c>full-scan</c> (after all pairs were tried, as in D-AIFC(c)).
+    /// </summary>
+    string? SupervisionRule = null
 );
+
+/// <summary>
+/// A labelled object of an algorithm with partial supervision: the 0-based index of the object,
+/// its membership grade, its non-membership grade (intuitionistic data only) and the class it
+/// belongs to (null: a class of its own).
+/// </summary>
+public sealed record LabelSpec(int ObjectIndex, double Membership, double? NonMembership = null, int? Class = null);

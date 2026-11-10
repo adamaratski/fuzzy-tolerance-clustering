@@ -75,7 +75,9 @@ internal static class ClusterHandler
             Diagnostics:      diagnostics,
             ThresholdScanOrder:    request.ScanOrder,
             IntuitionisticMeasure: request.IntuitionisticMeasure,
-            OpeningMethod:         request.Opening);
+            OpeningMethod:         request.Opening,
+            Labels:                request.Labels is { Length: > 0 } labels ? [.. labels.Select(AlgorithmFactory.ParseLabel)] : null,
+            SupervisionRule:       request.SupervisionRule);
         AlgorithmFactory.EnsureOptionsApply(request.Algorithm, options);
 
         DataFile? file = null;

@@ -16,6 +16,8 @@ public static class ClusterCommand
         var nonMember = new Option<FileInfo?>("--nonmembership") { Description = "Intuitionistic algorithms: CSV file with the non-membership matrix; --input is then the membership matrix. Without it --input is intuitionistic attribute data (columns in pairs: membership, non-membership)" };
         var scanOrder = new Option<string?>("--scan-order") { Description = "Intuitionistic algorithms: order of the scan over the threshold pairs, beta-inner (default) | beta-outer; order-free examines all pairs and returns the best allotment among the least number of clusters (dpaifc, dpaifc-tc)" };
         var opening   = new Option<string?>("--opening") { Description = "TO algorithms: how the transitive opening is computed, complete-linkage (default) | single-linkage-order" };
+        var label     = new Option<string[]>("--label") { Description = "Algorithms with partial supervision (dafc-ps, daifc-ps): a labelled object as object:y or, for intuitionistic data, object:y:f (objects numbered from 1); repeat the option for every labelled object; append @k to put several objects into class k" };
+        var psRule    = new Option<string?>("--ps-rule") { Description = "daifc-ps: when the intersection bound is raised, step10 (default, as printed) | full-scan" };
         var ifsMeasure = new Option<string?>("--ifs-measure") { Description = "Intuitionistic algorithms on attribute data: similarity measure, hamming (default) | euclidean" };
         var clusters  = new Option<int?>("--clusters") { Description = "Number of clusters c (dafc, daifc: required; dafc-tc: optional)" };
         var alpha     = new Option<double?>("--alpha") { Description = "Threshold α in [0, 1] (dafc: search this level only; dafc-tc-alpha, dafc-taga-alpha: least admissible threshold)" };
@@ -37,7 +39,7 @@ public static class ClusterCommand
         var cmd = new Command("cluster", "Run a fuzzy clustering algorithm")
         {
             algorithm, input, matrix, clusters, alpha, distance, norm, minkP, accuracy, taga, criterion,
-            inters, minSize, maxSize, maxNodes, top, rules, output, format, nonMember, scanOrder, ifsMeasure, opening
+            inters, minSize, maxSize, maxNodes, top, rules, output, format, nonMember, scanOrder, ifsMeasure, opening, label, psRule
         };
         cmd.SetAction((parse, ct) =>
         {
@@ -74,6 +76,8 @@ public static class ClusterCommand
                 ScanOrder:      parse.GetValue(scanOrder),
                 IntuitionisticMeasure: parse.GetValue(ifsMeasure),
                 Opening:        parse.GetValue(opening),
+                Labels:         parse.GetValue(label) ?? [],
+                SupervisionRule: parse.GetValue(psRule),
                 MaxNodesGiven:  Given(maxNodes)), ct);
         });
         return cmd;
@@ -87,4 +91,4 @@ internal sealed record ClusterRequest(
     string Criterion, int? Intersections, int MinSize, int MaxSize, long MaxNodes, int Top,
     FileInfo? Rules, FileInfo? Output, string Format, IReadOnlyList<string> MatrixBuildOptionsGiven,
     FileInfo? NonMembership = null, string? ScanOrder = null, string? IntuitionisticMeasure = null, bool MaxNodesGiven = false,
-    string? Opening = null);
+    string? Opening = null, string[]? Labels = null, string? SupervisionRule = null);
