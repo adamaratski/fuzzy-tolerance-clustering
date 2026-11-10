@@ -27,42 +27,80 @@ internal static class Drawing
         [MarkerType.Circle, MarkerType.Square, MarkerType.Triangle, MarkerType.Diamond, MarkerType.Cross, MarkerType.Plus, MarkerType.Star];
 
     private static readonly OxyColor Grid = OxyColor.FromRgb(225, 225, 225);
+    private static readonly OxyColor Ink = OxyColor.FromRgb(40, 40, 40);
+
+    // The figures are drawn at the size at which they are printed (1 pixel = 0.75 pt at 96 dpi), so
+    // a font of N pixels prints as 0.75 N pt. No text in any figure is smaller than 13 pixels (9.75 pt), apart from the
+    // exponents and subscripts of the typeset notation.
+    private const string FontName = "Times New Roman";
+    private const double TextSize = 13.5;
+    private const double SmallestTextSize = 13;
+
+    /// <summary>Dashes that stay visible at print size (the plain dash style is almost a solid line).</summary>
+    private const LineStyle ThresholdStyle = LineStyle.LongDash;
 
     private static PlotModel NewModel() => new()
     {
         Background = OxyColors.White,
-        DefaultFont = "Segoe UI",
-        DefaultFontSize = 13,
+        DefaultFont = FontName,
+        DefaultFontSize = TextSize,
         PlotAreaBorderColor = OxyColor.FromRgb(90, 90, 90),
         PlotAreaBorderThickness = new OxyThickness(1),
-        Padding = new OxyThickness(8, 8, 16, 8),
+        Padding = new OxyThickness(4, 6, 12, 4),
     };
 
-    private static LinearAxis Axis(AxisPosition position, string title, bool grid = true) => new()
+    private static LinearAxis Axis(AxisPosition position, string title, bool grid = true,
+                                   double minimum = double.NaN, double maximum = double.NaN) => new()
     {
         Position = position,
         Title = title,
-        AxisTitleDistance = 8,
+        AxisTitleDistance = 6,
         MajorGridlineStyle = grid ? LineStyle.Solid : LineStyle.None,
         MajorGridlineColor = Grid,
         TicklineColor = OxyColor.FromRgb(90, 90, 90),
-        MinimumPadding = 0.06,
-        MaximumPadding = 0.06,
+        MinimumPadding = double.IsNaN(minimum) ? 0.09 : 0,
+        MaximumPadding = double.IsNaN(maximum) ? 0.09 : 0,
+        Minimum = minimum,
+        Maximum = maximum,
     };
+
+    private static LogarithmicAxis LogAxis(AxisPosition position, string title,
+                                           double minimum = double.NaN, double maximum = double.NaN, bool powersOfTen = true) => new()
+    {
+        Position = position,
+        Title = title,
+        AxisTitleDistance = 6,
+        MajorGridlineStyle = LineStyle.Solid,
+        MajorGridlineColor = Grid,
+        TicklineColor = OxyColor.FromRgb(90, 90, 90),
+        Minimum = minimum,
+        Maximum = maximum,
+        LabelFormatter = powersOfTen ? FormatLogarithmicTick : value => value.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
+    };
+
+    /// <summary>Plain numbers below 1000 and powers of ten (10³, 10⁴, …) from 1000 on; no exponent notation.</summary>
+    private static string FormatLogarithmicTick(double value)
+    {
+        double exponent = Math.Log10(value);
+        bool isPowerOfTen = Math.Abs(exponent - Math.Round(exponent)) < 1e-9;
+        if (isPowerOfTen && Math.Round(exponent) >= 3) return "10" + Superscript((int)Math.Round(exponent));
+        return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    }
 
     private static void AddLegend(PlotModel model, LegendPosition position = LegendPosition.RightTop) =>
         model.Legends.Add(new Legend
         {
             LegendPosition = position,
             LegendPlacement = LegendPlacement.Inside,
-            LegendBackground = OxyColor.FromAColor(230, OxyColors.White),
+            LegendBackground = OxyColor.FromAColor(235, OxyColors.White),
             LegendBorder = Grid,
-            LegendFontSize = 12,
-            LegendSymbolLength = 18,
-            LegendSymbolMargin = 8,
-            LegendItemSpacing = 14,
-            LegendLineSpacing = 3,
-            LegendPadding = 10,
+            LegendFontSize = SmallestTextSize,
+            LegendSymbolLength = 30,
+            LegendSymbolMargin = 6,
+            LegendItemSpacing = 10,
+            LegendLineSpacing = 2,
+            LegendPadding = 6,
+            LegendMargin = 6,
         });
 
     private static OxyColor Colour(int index) => Palette[index % Palette.Length];
@@ -72,8 +110,9 @@ internal static class Drawing
     {
         var model = NewModel();
         model.PlotAreaBorderThickness = new OxyThickness(0);
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, IsAxisVisible = false, Minimum = -1.6, Maximum = 3.4 * levels.Length - 1.8 });
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Left, IsAxisVisible = false, Minimum = -1.9, Maximum = 1.5 });
+        model.Padding = new OxyThickness(0);
+        model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, IsAxisVisible = false, Minimum = -1.55, Maximum = 3.4 * levels.Length - 1.85 });
+        model.Axes.Add(new LinearAxis { Position = AxisPosition.Left, IsAxisVisible = false, Minimum = -1.95, Maximum = 1.55 });
 
         int objectCount = tolerance.Size;
         for (int panel = 0; panel < levels.Length; panel++)
@@ -87,7 +126,7 @@ internal static class Drawing
             for (int second = first + 1; second < objectCount; second++)
             {
                 if (tolerance[first, second] < levels[panel]) continue;
-                var edge = new LineSeries { Color = OxyColor.FromRgb(110, 110, 110), StrokeThickness = 1.6 };
+                var edge = new LineSeries { Color = OxyColor.FromRgb(110, 110, 110), StrokeThickness = 1.8 };
                 edge.Points.Add(new DataPoint(positions[first].X, positions[first].Y));
                 edge.Points.Add(new DataPoint(positions[second].X, positions[second].Y));
                 model.Series.Add(edge);
@@ -95,14 +134,14 @@ internal static class Drawing
                 {
                     Text = tolerance[first, second].ToString("0.0"),
                     TextPosition = new DataPoint((positions[first].X + positions[second].X) / 2, (positions[first].Y + positions[second].Y) / 2),
-                    Stroke = OxyColors.Transparent, FontSize = 10.5, TextColor = OxyColor.FromRgb(80, 80, 80),
+                    Stroke = OxyColors.Transparent, FontSize = SmallestTextSize, TextColor = OxyColors.Black,
                     Background = OxyColors.White, Padding = new OxyThickness(1),
                     TextHorizontalAlignment = HorizontalAlignment.Center, TextVerticalAlignment = VerticalAlignment.Middle,
                 });
             }
 
-            var ordinary = new ScatterSeries { MarkerType = MarkerType.Circle, MarkerSize = 9, MarkerFill = OxyColors.White, MarkerStroke = Colour(0), MarkerStrokeThickness = 2 };
-            var typical = new ScatterSeries { MarkerType = MarkerType.Circle, MarkerSize = 9, MarkerFill = Colour(0), MarkerStroke = Colour(0), MarkerStrokeThickness = 2 };
+            var ordinary = new ScatterSeries { MarkerType = MarkerType.Circle, MarkerSize = 7, MarkerFill = OxyColors.White, MarkerStroke = Colour(0), MarkerStrokeThickness = 2 };
+            var typical = new ScatterSeries { MarkerType = MarkerType.Circle, MarkerSize = 7, MarkerFill = Colour(0), MarkerStroke = Colour(0), MarkerStrokeThickness = 2 };
             for (int index = 0; index < objectCount; index++)
             {
                 bool isTypical = typicalPoints[panel].Contains(index);
@@ -110,8 +149,8 @@ internal static class Drawing
                 model.Annotations.Add(new TextAnnotation
                 {
                     Text = $"x{Subscript(index + 1)}",
-                    TextPosition = new DataPoint(offset + 1.32 * Math.Sin(2 * Math.PI * index / objectCount), 1.32 * Math.Cos(2 * Math.PI * index / objectCount)),
-                    Stroke = OxyColors.Transparent, FontSize = 13,
+                    TextPosition = new DataPoint(offset + 1.34 * Math.Sin(2 * Math.PI * index / objectCount), 1.34 * Math.Cos(2 * Math.PI * index / objectCount)),
+                    Stroke = OxyColors.Transparent, FontSize = 16,
                     TextHorizontalAlignment = HorizontalAlignment.Center, TextVerticalAlignment = VerticalAlignment.Middle,
                 });
             }
@@ -126,9 +165,10 @@ internal static class Drawing
         return model;
     }
 
-    /// <summary>Two attributes of the data with the clusters of an allotment; typical points are outlined.</summary>
+    /// <summary>Two attributes of the data with the clusters of an allotment; typical points are outlined.
+    /// The clusters differ in marker shape as well as in colour, so that they can be told apart in greyscale.</summary>
     public static PlotModel Scatter(RawDataMatrix data, int columnX, int columnY, ClusterResult allotment,
-                                    string titleX, string titleY, bool labelObjects)
+                                    string titleX, string titleY, bool labelObjects, bool legendBelow = false)
     {
         var model = NewModel();
         model.Axes.Add(Axis(AxisPosition.Bottom, titleX));
@@ -138,13 +178,15 @@ internal static class Drawing
         foreach (var members in allotment.MemberSets)
             foreach (int member in members) coverage[member]++;
 
+        // the marker size is the radius in pixels; the data sets of the shapes have about 300 points on a small canvas
+        double markerSize = labelObjects ? 4 : legendBelow ? 2.6 : 3.4;
         for (int cluster = 0; cluster < allotment.ClusterCount; cluster++)
         {
             var members = allotment.MemberSets[cluster];
             var series = new ScatterSeries
             {
                 Title = $"cluster {cluster + 1}: {members.Length} {(members.Length == 1 ? "object" : "objects")}",
-                MarkerType = Markers[cluster % Markers.Length], MarkerSize = labelObjects ? 5.5 : 3.6,
+                MarkerType = Markers[cluster % Markers.Length], MarkerSize = markerSize,
                 MarkerFill = Colour(cluster), MarkerStroke = Colour(cluster), MarkerStrokeThickness = 1.4,
             };
             foreach (int member in members)
@@ -155,8 +197,8 @@ internal static class Drawing
         // objects in intersection areas
         var shared = new ScatterSeries
         {
-            Title = "in several clusters", MarkerType = MarkerType.Circle, MarkerSize = 4.5,
-            MarkerFill = OxyColors.White, MarkerStroke = OxyColors.Black, MarkerStrokeThickness = 1.2,
+            Title = "in several clusters", MarkerType = MarkerType.Circle, MarkerSize = markerSize,
+            MarkerFill = OxyColors.White, MarkerStroke = OxyColors.Black, MarkerStrokeThickness = 1.3,
         };
         for (int index = 0; index < data.Rows; index++)
             if (coverage[index] > 1) shared.Points.Add(new ScatterPoint(data[index, columnX], data[index, columnY]));
@@ -164,7 +206,7 @@ internal static class Drawing
 
         var typical = new ScatterSeries
         {
-            MarkerType = MarkerType.Circle, MarkerSize = labelObjects ? 10 : 8,
+            MarkerType = MarkerType.Circle, MarkerSize = markerSize + 4,
             MarkerFill = OxyColors.Transparent, MarkerStroke = OxyColors.Black, MarkerStrokeThickness = 1.8,
             RenderInLegend = false,
         };
@@ -178,7 +220,7 @@ internal static class Drawing
                 model.Annotations.Add(new TextAnnotation
                 {
                     Text = (index + 1).ToString(), TextPosition = new DataPoint(data[index, columnX], data[index, columnY]),
-                    Offset = new ScreenVector(9, -9), Stroke = OxyColors.Transparent, FontSize = 10.5, TextColor = OxyColor.FromRgb(70, 70, 70),
+                    Offset = new ScreenVector(10, -10), Stroke = OxyColors.Transparent, FontSize = SmallestTextSize, TextColor = OxyColors.Black,
                 });
         }
         if (allotment.ClusterCount <= 7)
@@ -187,11 +229,19 @@ internal static class Drawing
             // (the rings in the plot are larger, so that they surround the cluster markers)
             model.Series.Add(new ScatterSeries
             {
-                Title = "typical point", MarkerType = MarkerType.Circle, MarkerSize = labelObjects ? 5.5 : 4.5,
+                Title = "typical point", MarkerType = MarkerType.Circle, MarkerSize = Math.Max(markerSize, 3.5),
                 MarkerFill = OxyColors.Transparent, MarkerStroke = OxyColors.Black, MarkerStrokeThickness = 1.6,
             });
-            AddLegend(model, LegendPosition.RightTop);
-            model.Legends[0].LegendPlacement = LegendPlacement.Outside;
+            AddLegend(model, legendBelow ? LegendPosition.BottomLeft : LegendPosition.RightTop);
+            var legend = model.Legends[0];
+            legend.LegendPlacement = LegendPlacement.Outside;
+            legend.LegendSymbolLength = 14;
+            if (legendBelow)
+            {
+                legend.LegendOrientation = LegendOrientation.Horizontal;
+                legend.LegendItemSpacing = 8;
+                legend.LegendSymbolMargin = 3;
+            }
         }
         return model;
     }
@@ -210,19 +260,20 @@ internal static class Drawing
         model.Axes.Add(new LinearAxis
         {
             Position = AxisPosition.Bottom, Minimum = 0.3, Maximum = objectCount + 0.7, MajorStep = 1, MinorStep = 1,
-            MinorTickSize = 0, Title = "object", LabelFormatter = value => value >= 1 && value <= objectCount ? (order[(int)Math.Round(value) - 1] + 1).ToString() : "",
+            MinorTickSize = 0, Title = "object", AxisTitleDistance = 6,
+            LabelFormatter = value => value >= 1 && value <= objectCount ? (order[(int)Math.Round(value) - 1] + 1).ToString() : "",
         });
         model.Axes.Add(new LinearAxis
         {
-            Position = AxisPosition.Left, Title = "level α of the closure", Minimum = lowest - 0.004, Maximum = 1.0005,
+            Position = AxisPosition.Left, Title = "level α of the closure", AxisTitleDistance = 6, Minimum = lowest - 0.004, Maximum = 1.0005,
             StartPosition = 1, EndPosition = 0, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid,
         });
 
         DrawSubtree([.. Enumerable.Range(0, objectCount)], closure, position, model);
         model.Annotations.Add(new LineAnnotation
         {
-            Type = LineAnnotationType.Horizontal, Y = threshold, Color = Colour(1), LineStyle = LineStyle.Dash, StrokeThickness = 1.6,
-            Text = $"α* = {threshold:0.#####}", TextColor = Colour(1), TextHorizontalAlignment = HorizontalAlignment.Left,
+            Type = LineAnnotationType.Horizontal, Y = threshold, Color = OxyColors.Black, LineStyle = ThresholdStyle, StrokeThickness = 1.6,
+            Text = $"α* = {threshold:0.#####}", TextColor = OxyColors.Black, TextHorizontalAlignment = HorizontalAlignment.Left,
             TextLinePosition = 0.02, TextVerticalAlignment = VerticalAlignment.Bottom,
         });
         return model;
@@ -260,7 +311,7 @@ internal static class Drawing
 
         var parts = Split(members, closure, out double mergeLevel);
         var children = parts.Select(part => DrawSubtree(part, closure, position, model)).ToList();
-        var line = new LineSeries { Color = OxyColor.FromRgb(40, 40, 40), StrokeThickness = 1.5 };
+        var line = new LineSeries { Color = Ink, StrokeThickness = 1.6 };
         foreach (var child in children)
         {
             line.Points.Add(new DataPoint(child.X, child.Y));
@@ -277,15 +328,15 @@ internal static class Drawing
     public static PlotModel MembershipProfiles(ClusterResult allotment)
     {
         var model = NewModel();
-        int objectCount = allotment.Membership.GetLength(0);
         model.Axes.Add(Axis(AxisPosition.Bottom, "object", grid: false));
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "membership", Minimum = Math.Floor(allotment.Alpha * 50) / 50 - 0.004, Maximum = 1.002, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
+        model.Axes.Add(Axis(AxisPosition.Left, "membership", minimum: Math.Floor(allotment.Alpha * 50) / 50 - 0.004, maximum: 1.002));
         for (int cluster = 0; cluster < allotment.ClusterCount; cluster++)
         {
             var series = new ScatterSeries
             {
-                Title = $"cluster {cluster + 1}, typical point x{allotment.Centers[cluster] + 1}",
-                MarkerType = Markers[cluster % Markers.Length], MarkerSize = 3.2, MarkerFill = Colour(cluster), MarkerStroke = Colour(cluster),
+                Title = $"cluster {cluster + 1}, typical point x{Subscript(allotment.Centers[cluster] + 1)}",
+                MarkerType = Markers[cluster % Markers.Length], MarkerSize = 4.5, MarkerFill = Colour(cluster),
+                MarkerStroke = Colour(cluster), MarkerStrokeThickness = 1.2,
             };
             foreach (int member in allotment.MemberSets[cluster])
                 series.Points.Add(new ScatterPoint(member + 1, allotment.Membership[member, cluster]));
@@ -293,13 +344,17 @@ internal static class Drawing
         }
         model.Annotations.Add(new LineAnnotation
         {
-            Type = LineAnnotationType.Horizontal, Y = allotment.Alpha, Color = OxyColor.FromRgb(90, 90, 90), LineStyle = LineStyle.Dash,
-            Text = $"α* = {allotment.Alpha:0.#####}", TextHorizontalAlignment = HorizontalAlignment.Left,
+            Type = LineAnnotationType.Horizontal, Y = allotment.Alpha, Color = OxyColors.Black, LineStyle = ThresholdStyle, StrokeThickness = 1.5,
+            Text = $"α* = {allotment.Alpha:0.#####}", TextColor = OxyColors.Black, TextHorizontalAlignment = HorizontalAlignment.Left,
             TextLinePosition = 0.02, TextVerticalAlignment = VerticalAlignment.Bottom,
         });
         AddLegend(model, LegendPosition.BottomCenter);
-        model.Legends[0].LegendOrientation = LegendOrientation.Horizontal;
-        model.Legends[0].LegendPlacement = LegendPlacement.Outside;
+        var legend = model.Legends[0];
+        legend.LegendOrientation = LegendOrientation.Horizontal;
+        legend.LegendPlacement = LegendPlacement.Outside;
+        legend.LegendSymbolLength = 14;
+        legend.LegendSymbolMargin = 3;
+        legend.LegendItemSpacing = 12;
         return model;
     }
 
@@ -313,19 +368,20 @@ internal static class Drawing
         int thresholdIndex = Array.IndexOf(ascending, threshold);
 
         model.Axes.Add(Axis(AxisPosition.Bottom, "index ℓ of the level"));
-        model.Axes.Add(Axis(AxisPosition.Left, "level α_ℓ of the closure"));
-        var series = new LineSeries { Color = Colour(0), StrokeThickness = 1.2, MarkerType = MarkerType.Circle, MarkerSize = 2.6, MarkerFill = Colour(0) };
+        model.Axes.Add(Axis(AxisPosition.Left, "level α_{ℓ} of the closure"));
+        var series = new LineSeries { Color = Colour(0), StrokeThickness = 1.4, MarkerType = MarkerType.Circle, MarkerSize = 2.6, MarkerFill = Colour(0) };
         for (int index = 0; index < ascending.Length; index++) series.Points.Add(new DataPoint(index, ascending[index]));
         model.Series.Add(series);
 
-        var leap = new LineSeries { Color = Colour(1), StrokeThickness = 3 };
+        // the leap is drawn thick and black, so it stands out in greyscale as well
+        var leap = new LineSeries { Color = OxyColors.Black, StrokeThickness = 3.5 };
         leap.Points.Add(new DataPoint(thresholdIndex - 1, ascending[thresholdIndex - 1]));
         leap.Points.Add(new DataPoint(thresholdIndex, ascending[thresholdIndex]));
         model.Series.Add(leap);
         model.Annotations.Add(new TextAnnotation
         {
             Text = $"largest leap: α* = {threshold:0.#####}", TextPosition = new DataPoint(thresholdIndex, ascending[thresholdIndex]),
-            Offset = new ScreenVector(12, 4), Stroke = OxyColors.Transparent, TextColor = Colour(1),
+            Offset = new ScreenVector(14, 6), Stroke = OxyColors.Transparent, TextColor = OxyColors.Black,
             TextHorizontalAlignment = HorizontalAlignment.Left, TextVerticalAlignment = VerticalAlignment.Middle,
         });
         return model;
@@ -338,9 +394,10 @@ internal static class Drawing
         var descending = closure.GetDistinctValues();
         double threshold = LeapHeuristicAlphaSelector.SelectFrom(descending)!.Value;
         model.Axes.Add(Axis(AxisPosition.Bottom, "level α of the closure"));
-        model.Axes.Add(new LogarithmicAxis { Position = AxisPosition.Left, Title = "number of classes c(α)", MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid, Minimum = 1, Maximum = closure.Size * 1.2 });
+        var countAxis = LogAxis(AxisPosition.Left, "number of classes c(α)", minimum: 1, maximum: closure.Size * 1.2);
+        model.Axes.Add(countAxis);
 
-        var series = new StairStepSeries { Color = Colour(0), StrokeThickness = 1.8, VerticalStrokeThickness = 1.8 };
+        var series = new StairStepSeries { Color = Colour(0), StrokeThickness = 2, VerticalStrokeThickness = 2 };
         double previous = descending[^1] - 0.02;
         series.Points.Add(new DataPoint(previous, 1));
         foreach (double level in descending.Reverse())
@@ -349,8 +406,9 @@ internal static class Drawing
         model.Series.Add(series);
         model.Annotations.Add(new LineAnnotation
         {
-            Type = LineAnnotationType.Vertical, X = threshold, Color = Colour(1), LineStyle = LineStyle.Dash, StrokeThickness = 1.6,
-            Text = $"α* = {threshold:0.#####}", TextColor = Colour(1), TextOrientation = AnnotationTextOrientation.Horizontal,
+            Type = LineAnnotationType.Vertical, X = threshold, Color = OxyColors.Black, LineStyle = ThresholdStyle, StrokeThickness = 1.6,
+            Text = $"α* = {threshold:0.#####}", TextColor = OxyColors.Black, TextOrientation = AnnotationTextOrientation.Horizontal,
+            TextHorizontalAlignment = HorizontalAlignment.Left, TextLinePosition = 0.5, TextPadding = 6,
         });
         return model;
     }
@@ -369,21 +427,27 @@ internal static class Drawing
         return classes;
     }
 
-    /// <summary>The three validity measures of D-AFC(u) against the maximal number of objects u.</summary>
+    /// <summary>The three validity measures of D-AFC(u) against the maximal number of objects u.
+    /// The lines differ in marker (filled or open), line style and colour.</summary>
     public static PlotModel SizeMeasures(ClusterSizeSelectionResult selection)
     {
         var model = NewModel();
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "maximal number of objects u", MajorStep = 1, MinorStep = 1, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
+        model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "maximal number of objects u", AxisTitleDistance = 6, Minimum = 2.6, Maximum = 8.4, MajorStep = 1, MinorStep = 1, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
         model.Axes.Add(Axis(AxisPosition.Left, "value of the measure"));
-        (string Title, Func<AllotmentMeasures, double> Value)[] measures =
+        (string Title, Func<AllotmentMeasures, double> Value, LineStyle Style, bool OpenMarker)[] measures =
         [
-            ("V_LMF, linear fuzziness", measure => measure.LinearFuzziness),
-            ("V_QMF, quadratic fuzziness", measure => measure.QuadraticFuzziness),
-            ("V_MSC, separation and compactness", measure => measure.SeparationCompactness),
+            ("V_{LMF}, linear fuzziness", measure => measure.LinearFuzziness, LineStyle.Solid, false),
+            ("V_{QMF}, quadratic fuzziness", measure => measure.QuadraticFuzziness, LineStyle.Dot, true),
+            ("V_{MSC}, separation and compactness", measure => measure.SeparationCompactness, LineStyle.Solid, false),
         ];
         for (int index = 0; index < measures.Length; index++)
         {
-            var series = new LineSeries { Title = measures[index].Title, Color = Colour(index), StrokeThickness = 1.8, MarkerType = Markers[index], MarkerSize = 5, MarkerFill = Colour(index) };
+            var series = new LineSeries
+            {
+                Title = measures[index].Title, Color = Colour(index), StrokeThickness = 2, LineStyle = measures[index].Style,
+                MarkerType = Markers[index], MarkerSize = 5.5, MarkerStroke = Colour(index), MarkerStrokeThickness = 1.5,
+                MarkerFill = measures[index].OpenMarker ? OxyColors.White : Colour(index),
+            };
             foreach (var step in selection.Steps)
                 if (step.Measures is not null) series.Points.Add(new DataPoint(step.MaxClusterPower, measures[index].Value(step.Measures)));
             model.Series.Add(series);
@@ -391,10 +455,14 @@ internal static class Drawing
         if (selection.OptimalMaxClusterPower is int optimal)
             model.Annotations.Add(new LineAnnotation
             {
-                Type = LineAnnotationType.Vertical, X = optimal, Color = OxyColor.FromRgb(90, 90, 90), LineStyle = LineStyle.Dash,
-                Text = $"u* = {optimal}", TextOrientation = AnnotationTextOrientation.Horizontal,
+                Type = LineAnnotationType.Vertical, X = optimal, Color = OxyColors.Black, LineStyle = ThresholdStyle, StrokeThickness = 1.4,
+                Text = $"u* = {optimal}", TextColor = OxyColors.Black, TextOrientation = AnnotationTextOrientation.Horizontal,
+                TextHorizontalAlignment = HorizontalAlignment.Left, TextLinePosition = 0.45, TextPadding = 6,
             });
-        AddLegend(model);
+        AddLegend(model, LegendPosition.BottomCenter);
+        var legend = model.Legends[0];
+        legend.LegendPlacement = LegendPlacement.Outside;
+        legend.LegendSymbolLength = 34;
         return model;
     }
 
@@ -403,15 +471,20 @@ internal static class Drawing
     {
         var model = NewModel();
         int shown = 45;
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "number of clusters", Minimum = 1, Maximum = shown, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "possibility degree", Minimum = 0.6, Maximum = 1.02, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
-        foreach (var (shape, title, index) in new[] { (ClusterCountShape.Triangular, "triangular", 0), (ClusterCountShape.Gaussian, "Gaussian", 1) })
+        model.Axes.Add(Axis(AxisPosition.Bottom, "number of clusters", minimum: 1, maximum: shown));
+        model.Axes.Add(Axis(AxisPosition.Left, "possibility degree", minimum: 0.6, maximum: 1.02));
+        foreach (var (shape, title, index, style, openMarker) in new[]
+                 {
+                     (ClusterCountShape.Triangular, "triangular", 0, LineStyle.Solid, false),
+                     (ClusterCountShape.Gaussian, "Gaussian", 1, LineStyle.Dot, true),
+                 })
         {
             var bounds = ClusterCountBounds.Compute(objectCount, clusterCount, alpha, shape);
             var series = new LineSeries
             {
-                Title = $"{title}: {{{bounds.Least}, …, {bounds.Largest}}}", Color = Colour(index), StrokeThickness = 1.8,
-                MarkerType = Markers[index], MarkerSize = 3.5, MarkerFill = Colour(index),
+                Title = $"{title}: {{{bounds.Least}, …, {bounds.Largest}}}", Color = Colour(index), StrokeThickness = 2, LineStyle = style,
+                MarkerType = Markers[index], MarkerSize = 4.5, MarkerStroke = Colour(index), MarkerStrokeThickness = 1.4,
+                MarkerFill = openMarker ? OxyColors.White : Colour(index),
             };
             for (int count = 1; count <= shown; count++)
                 series.Points.Add(new DataPoint(count, ClusterCountBounds.Possibility(objectCount, clusterCount, alpha, shape, count)));
@@ -419,23 +492,24 @@ internal static class Drawing
         }
         model.Annotations.Add(new LineAnnotation
         {
-            Type = LineAnnotationType.Horizontal, Y = alpha, Color = OxyColor.FromRgb(90, 90, 90), LineStyle = LineStyle.Dash,
-            Text = $"α = {alpha:0.#####}", TextHorizontalAlignment = HorizontalAlignment.Right,
+            Type = LineAnnotationType.Horizontal, Y = alpha, Color = OxyColors.Black, LineStyle = ThresholdStyle, StrokeThickness = 1.5,
+            Text = $"α = {alpha:0.#####}", TextColor = OxyColors.Black, TextHorizontalAlignment = HorizontalAlignment.Right,
         });
         AddLegend(model);
         return model;
     }
 
-    /// <summary>The antecedent fuzzy sets of one input variable of a rule base.</summary>
+    /// <summary>The antecedent fuzzy sets of one input variable of a rule base; the sets differ in line style as well as in colour.</summary>
     public static PlotModel Antecedents(FuzzyInferenceSystem system, int inputIndex, string title)
     {
         var model = NewModel();
         var variable = system.Inputs[inputIndex];
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = title, Minimum = variable.Min, Maximum = variable.Max, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
-        model.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "membership", Minimum = 0, Maximum = 1.05, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
+        model.Axes.Add(Axis(AxisPosition.Bottom, title, minimum: variable.Min, maximum: variable.Max));
+        model.Axes.Add(Axis(AxisPosition.Left, "membership", minimum: 0, maximum: 1.05));
+        LineStyle[] styles = [LineStyle.Solid, LineStyle.LongDash, LineStyle.Dot, LineStyle.DashDot];
         for (int term = 0; term < variable.Terms.Count; term++)
         {
-            var series = new LineSeries { Title = variable.Terms[term].Name, Color = Colour(term), StrokeThickness = 2 };
+            var series = new LineSeries { Title = variable.Terms[term].Name, Color = Colour(term), StrokeThickness = 2.4, LineStyle = styles[term % styles.Length] };
             const int samples = 600;
             for (int sample = 0; sample <= samples; sample++)
             {
@@ -445,6 +519,8 @@ internal static class Drawing
             model.Series.Add(series);
         }
         AddLegend(model);
+        model.Legends[0].LegendPlacement = LegendPlacement.Outside;
+        model.Legends[0].LegendSymbolLength = 40;
         return model;
     }
 
@@ -452,8 +528,8 @@ internal static class Drawing
     public static PlotModel ClosureTimes(IReadOnlyList<JsonElement> measurements)
     {
         var model = NewModel();
-        model.Axes.Add(new LogarithmicAxis { Position = AxisPosition.Bottom, Title = "number of objects n", MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid, Minimum = 120, Maximum = 2500 });
-        model.Axes.Add(new LogarithmicAxis { Position = AxisPosition.Left, Title = "median time, ms", MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
+        model.Axes.Add(LogAxis(AxisPosition.Bottom, "number of objects n", minimum: 120, maximum: 2500, powersOfTen: false));
+        model.Axes.Add(LogAxis(AxisPosition.Left, "median time, ms", maximum: 1e5));
 
         var closure = measurements
             .Where(record => record.GetProperty("experiment").GetString() == "closure" && record.GetProperty("cores").GetInt32() > 1)
@@ -462,11 +538,15 @@ internal static class Drawing
         int index = 0;
         foreach (var variant in closure)
         {
+            bool isSpanningTree = variant.Key.StartsWith("Spanning", StringComparison.Ordinal);
+            bool lastOfAll = index == closure.Count - 1;
+            // every series has its own marker; the last one (a circle again) is open to tell it from the first
             var series = new LineSeries
             {
                 Title = variant.Key.Replace(" (library)", "").Replace(" (former library)", ""),
-                Color = Colour(index), StrokeThickness = 1.8, MarkerType = Markers[index % Markers.Length], MarkerSize = 4.5, MarkerFill = Colour(index),
-                LineStyle = variant.Key.StartsWith("Spanning", StringComparison.Ordinal) ? LineStyle.Solid : LineStyle.Dash,
+                Color = Colour(index), StrokeThickness = 1.8, MarkerType = Markers[index % Markers.Length], MarkerSize = 5.5,
+                MarkerStroke = Colour(index), MarkerStrokeThickness = 1.5, MarkerFill = lastOfAll ? OxyColors.White : Colour(index),
+                LineStyle = isSpanningTree ? LineStyle.Solid : LineStyle.Dash,
             };
             foreach (var record in variant.OrderBy(record => record.GetProperty("objectCount").GetInt32()))
                 series.Points.Add(new DataPoint(record.GetProperty("objectCount").GetInt32(), record.GetProperty("medianMilliseconds").GetDouble()));
@@ -474,37 +554,68 @@ internal static class Drawing
             index++;
         }
         AddLegend(model, LegendPosition.LeftTop);
-        model.Legends[0].LegendFontSize = 10.5;
+        model.Legends[0].LegendSymbolLength = 36;
+        model.Legends[0].LegendItemSpacing = 6;
         return model;
     }
 
-    /// <summary>Time of the D-AFC(3) search on Iris per configuration (logarithmic scale).</summary>
+    /// <summary>
+    /// Time of the D-AFC(3) search on Iris in the configurations of the ablation table of the book, one bar per row of the
+    /// table and in the same order (logarithmic scale). The rows are the measurements of the search experiment.
+    /// </summary>
     public static PlotModel SearchTimes(IReadOnlyList<JsonElement> measurements)
     {
         var model = NewModel();
-        var search = measurements
-            .Where(record => record.GetProperty("experiment").GetString() == "search"
-                             && !record.GetProperty("variant").GetString()!.Contains("early stopping"))
-            .Select(record => (
-                Label: record.GetProperty("variant").GetString()!.Replace(" (library)", "")
-                       + (record.GetProperty("cores").GetInt32() == 1 ? ", 1 core" : $", {record.GetProperty("cores").GetInt32()} threads"),
-                Milliseconds: record.GetProperty("medianMilliseconds").GetDouble()))
-            .OrderBy(entry => entry.Milliseconds)
+        // (label of the table row, variant of the measurement, number of cores)
+        (string Label, string Variant, int Cores)[] rows =
+        [
+            ("Naïve enumeration", "Plain enumeration of all combinations", 1),
+            ("+ level pre-filter", "Pre-filter + plain enumeration", 1),
+            ("+ bit-set engine, pruning,\ndeferred scoring", "Bit-set engine + pre-filter", 1),
+            ("+ exact-cover bound", "Bit-set engine + pre-filter + exact-cover bound (library)", 1),
+            ("+ parallel levels", "Bit-set engine + pre-filter + exact-cover bound (library)", 24),
+        ];
+        var search = measurements.Where(record => record.GetProperty("experiment").GetString() == "search").ToList();
+        var times = rows.Select(row => search.Single(record =>
+                record.GetProperty("variant").GetString() == row.Variant && record.GetProperty("cores").GetInt32() == row.Cores))
             .ToList();
 
-        var categories = new CategoryAxis { Position = AxisPosition.Left, GapWidth = 0.35 };
-        var bars = new BarSeries { FillColor = Colour(0), BaseValue = 1, LabelPlacement = LabelPlacement.Outside, LabelFormatString = "{0:#,0} ms", StrokeThickness = 0 };
-        foreach (var entry in search)
+        var categories = new CategoryAxis { Position = AxisPosition.Left, GapWidth = 0.45, StartPosition = 1, EndPosition = 0, TicklineColor = OxyColor.FromRgb(90, 90, 90) };
+        foreach (var row in rows) categories.Labels.Add(row.Label);
+        var bars = new BarSeries { FillColor = Colour(0), BaseValue = 1, StrokeThickness = 0 };
+        for (int row = 0; row < rows.Length; row++)
         {
-            categories.Labels.Add(entry.Label);
-            bars.Items.Add(new BarItem(entry.Milliseconds));
+            double milliseconds = times[row].GetProperty("medianMilliseconds").GetDouble();
+            bool extrapolated = times[row].GetProperty("extrapolated").GetBoolean();
+            bars.Items.Add(new BarItem(milliseconds));
+            model.Annotations.Add(new TextAnnotation
+            {
+                Text = FormatDuration(milliseconds) + (extrapolated ? "†" : ""), TextPosition = new DataPoint(milliseconds, row),
+                Offset = new ScreenVector(5, 0), Stroke = OxyColors.Transparent, TextColor = OxyColors.Black,
+                TextHorizontalAlignment = HorizontalAlignment.Left, TextVerticalAlignment = VerticalAlignment.Middle,
+            });
         }
         model.Axes.Add(categories);
-        model.Axes.Add(new LogarithmicAxis { Position = AxisPosition.Bottom, Title = "time, ms", Minimum = 1, Maximum = search.Max(entry => entry.Milliseconds) * 40, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = Grid });
+        model.Axes.Add(LogAxis(AxisPosition.Bottom, "time, ms", minimum: 1, maximum: 6e6));
         model.Series.Add(bars);
         return model;
     }
 
+    /// <summary>A duration as in the tables of the book: seconds above one second (one decimal below 100 s), else milliseconds.</summary>
+    private static string FormatDuration(double milliseconds)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        if (milliseconds >= 100_000) return (milliseconds / 1000).ToString("0", culture) + " s";
+        if (milliseconds >= 1000) return (milliseconds / 1000).ToString("0.0", culture) + " s";
+        return milliseconds.ToString("0", culture) + " ms";
+    }
+
     private static string Subscript(int number) =>
         string.Concat(number.ToString().Select(digit => (char)('₀' + (digit - '0'))));
+
+    private static string Superscript(int number)
+    {
+        const string digits = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+        return string.Concat(number.ToString().Select(character => character == '-' ? '⁻' : digits[character - '0']));
+    }
 }
