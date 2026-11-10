@@ -10,9 +10,7 @@
     <AssemblyName>Math.Fuzzy.Desktop</AssemblyName>
     <RootNamespace>MathFuzzy.Desktop</RootNamespace>
     <Description>WPF desktop application for interactive fuzzy clustering analysis.</Description>
-    <Version>1.0.0</Version>
     <Product>Fuzzy Tolerance Clustering Workbench</Product>
-    <Authors>Aliaksandr Damaratski</Authors>
     <Copyright>Copyright (c) 2026 Aliaksandr Damaratski. MIT License.</Copyright>
     <!-- <ApplicationIcon>Assets\icon.ico</ApplicationIcon> -->
   </PropertyGroup>

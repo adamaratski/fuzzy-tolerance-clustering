@@ -1,21 +1,22 @@
 Processor: AMD Ryzen 9 7900X 12-Core Processor, logical cores used: 1, .NET 10.0.13, Vector<double>: 4 lanes, AVX2: True, AVX-512F: True
-closure    Floyd-Warshall, scalar, parallel       iris       n=150   cores=1   median=        3.56 ms
-closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) iris       n=150   cores=1   median=        2.24 ms
-closure    Spanning tree, parallel (library)      iris       n=150   cores=1   median=        0.19 ms
-closure    Floyd-Warshall, scalar, parallel       blobs500   n=500   cores=1   median=       82.22 ms
-closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs500   n=500   cores=1   median=       33.66 ms
-closure    Spanning tree, parallel (library)      blobs500   n=500   cores=1   median=        2.83 ms
-closure    Floyd-Warshall, scalar, parallel       blobs1000  n=1000  cores=1   median=      632.74 ms
-closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs1000  n=1000  cores=1   median=      237.13 ms
-closure    Spanning tree, parallel (library)      blobs1000  n=1000  cores=1   median=       14.45 ms
-closure    Floyd-Warshall, scalar, parallel       blobs2000  n=2000  cores=1   median=     5205.77 ms
-closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs2000  n=2000  cores=1   median=     2686.90 ms
-closure    Spanning tree, parallel (library)      blobs2000  n=2000  cores=1   median=       51.18 ms
-search     Bit-set engine + pre-filter (library)  iris       n=150   cores=1   median=     7770.13 ms  [8653 levels]
-hafc       Best typical point per class (library) iris       n=150   cores=1   median=       10.36 ms  [93 levels]
-stages     Tolerance matrix T                     iris       n=150   cores=1   median=        0.10 ms
+closure    Floyd-Warshall, scalar, parallel       iris       n=150   cores=1   median=        3.94 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) iris       n=150   cores=1   median=        2.33 ms
+closure    Spanning tree, parallel (library)      iris       n=150   cores=1   median=        0.22 ms
+closure    Floyd-Warshall, scalar, parallel       blobs500   n=500   cores=1   median=       85.14 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs500   n=500   cores=1   median=       34.83 ms
+closure    Spanning tree, parallel (library)      blobs500   n=500   cores=1   median=        2.99 ms
+closure    Floyd-Warshall, scalar, parallel       blobs1000  n=1000  cores=1   median=      626.85 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs1000  n=1000  cores=1   median=      236.83 ms
+closure    Spanning tree, parallel (library)      blobs1000  n=1000  cores=1   median=       14.36 ms
+closure    Floyd-Warshall, scalar, parallel       blobs2000  n=2000  cores=1   median=     5486.32 ms
+closure    Floyd-Warshall, SIMD 256-bit, parallel (former library) blobs2000  n=2000  cores=1   median=     3340.77 ms
+closure    Spanning tree, parallel (library)      blobs2000  n=2000  cores=1   median=       53.57 ms
+search     Bit-set engine + pre-filter + exact-cover bound (library) iris       n=150   cores=1   median=      401.59 ms  [3447 of 7887 levels searched, 2,910,078 nodes]
+search     Bit-set engine + pre-filter            iris       n=150   cores=1   median=     7536.17 ms  [3916 of 7887 levels searched, 22,559,412 nodes]
+hafc       Best typical point per class (library) iris       n=150   cores=1   median=       10.09 ms  [75 levels]
+stages     Tolerance matrix T                     iris       n=150   cores=1   median=        0.76 ms
 stages     Transitive closure (library)           iris       n=150   cores=1   median=        0.21 ms
-stages     Distinct ?-levels of T                 iris       n=150   cores=1   median=        1.01 ms  [8653 levels]
-stages     Tolerance matrix T                     blobs2000  n=2000  cores=1   median=       14.72 ms
-stages     Transitive closure (library)           blobs2000  n=2000  cores=1   median=       54.11 ms
-stages     Distinct ?-levels of T                 blobs2000  n=2000  cores=1   median=     1307.40 ms  [1999000 levels]
+stages     Distinct ?-levels of T                 iris       n=150   cores=1   median=        0.45 ms  [7887 levels]
+stages     Tolerance matrix T                     blobs2000  n=2000  cores=1   median=      170.29 ms
+stages     Transitive closure (library)           blobs2000  n=2000  cores=1   median=       60.25 ms
+stages     Distinct ?-levels of T                 blobs2000  n=2000  cores=1   median=      125.70 ms  [1998990 levels]

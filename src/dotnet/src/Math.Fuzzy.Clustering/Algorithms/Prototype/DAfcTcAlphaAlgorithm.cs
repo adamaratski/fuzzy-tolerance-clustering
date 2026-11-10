@@ -1,4 +1,3 @@
-using MathFuzzy.Clustering.Algorithms.Relational;
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Core.AlphaSelection;
 using MathFuzzy.Core.Criteria;
@@ -7,51 +6,47 @@ using MathFuzzy.Core.Matrix;
 namespace MathFuzzy.Clustering.Algorithms.Prototype;
 
 /// <summary>
-/// D-AFC-TC(α) — D-AFC-TC with user-specified tolerance threshold.
+/// D-AFC-TC(α) — D-AFC-TC with a user-specified least tolerance threshold
+/// (Viattchenin 2013, sec. 2.3.1).
 ///
-/// Same as D-AFC-TC, but the result must satisfy α ≥ userAlpha:
-/// alpha* comes from the leap heuristic; when it falls below userAlpha,
-/// the heuristic is re-applied to the subsequence {αₛ : αₛ ≥ userAlpha}
-/// (per the algorithm specification, docs/algorithms.md §D-AFC-TC(α)).
+/// The threshold α* comes from the leap heuristic; when it falls below the given value, the
+/// heuristic is applied again to the levels {α_ℓ : α_ℓ ≥ userAlpha} only.
 /// </summary>
 public sealed class DAfcTcAlphaAlgorithm(
     ToleranceMatrixBuilder  toleranceBuilder,
     MaxMinTransitiveClosure closure,
     ICriterion              criterion,
     double                  userAlpha,
-    int                     minClusterPower  = 1,
-    int                     maxClusterPower  = 0,
-    int                     maxIntersections = DAfcOptions.AutoIntersections) : IPrototypeClusterer
+    int                     minClusterPower = 1,
+    int                     maxClusterPower = 0,
+    int                     maxResults      = 200) : IPrototypeClusterer
 {
     public IReadOnlyList<ClusterResult> Run(RawDataMatrix data, CancellationToken ct = default)
+        => Run(toleranceBuilder.Build(data), toleranceBuilder.Normalize(data), ct);
+
+    /// <summary>Runs the algorithm on a given tolerance matrix (see <see cref="DAfcTcAlgorithm.Run(FuzzyToleranceMatrix, RawDataMatrix?, CancellationToken)"/>).</summary>
+    public IReadOnlyList<ClusterResult> Run(
+        FuzzyToleranceMatrix tolerance, RawDataMatrix? normalizedData, CancellationToken ct = default)
     {
-        var Tt = PrototypePipeline.BuildWithClosure(data, toleranceBuilder, closure);
+        var closureMatrix = closure.Compute(tolerance);
+        if (SelectThreshold(closureMatrix.GetDistinctValues(), userAlpha) is not double alpha)
+            return [];
 
-        // Resolve effective alpha (Viattchenin 2013, D-AFC-TC(α), step 4): leap heuristic on
-        // the full sequence; if α* < userAlpha, re-apply it to the levels above userAlpha.
-        var allAlphas = AllDistinctAlphaSelector.Instance.Select(Tt); // descending
-        double? leapAlpha = LeapHeuristicAlphaSelector.SelectFrom(allAlphas);
-        if (leapAlpha is not double effectiveAlpha) return [];
-        if (effectiveAlpha < userAlpha)
-        {
-            var constrained = allAlphas.Where(a => a >= userAlpha).ToArray(); // still descending
-            if (LeapHeuristicAlphaSelector.SelectFrom(constrained) is not double constrainedAlpha)
-                return []; // userAlpha above every level in T̃
-            effectiveAlpha = constrainedAlpha;
-        }
+        return ClosureAllotment.Solve(closureMatrix, alpha, criterion, minClusterPower, maxClusterPower,
+                                      normalizedData, maxResults, ct);
+    }
 
-        int n = Tt.Size;
+    /// <summary>
+    /// The leap-heuristic threshold not below <paramref name="leastAlpha"/>, from a descending
+    /// list of levels; null when every level lies below the given value.
+    /// </summary>
+    internal static double? SelectThreshold(
+        IReadOnlyList<double> descendingLevels, double leastAlpha, LeapForm form = LeapForm.Difference)
+    {
+        if (LeapHeuristicAlphaSelector.SelectFrom(descendingLevels, form) is not double alpha) return null;
+        if (alpha >= leastAlpha) return alpha;
 
-        // On T̃ the α-cuts partition X into equivalence classes; only c = class count
-        // can satisfy the coverage condition, so other c values need not be tried.
-        int classCount = PrototypePipeline.CountAlphaClasses(Tt, effectiveAlpha);
-        if (classCount < 2 || classCount > n) return [];
-
-        var dafc = new DAfcAlgorithm(
-            new DAfcOptions(classCount, minClusterPower, maxClusterPower, maxIntersections),
-            new ManualAlphaSelector([effectiveAlpha]),
-            criterion);
-
-        return dafc.RunForAlpha(Tt, effectiveAlpha, ct);
+        var admissible = descendingLevels.Where(level => level >= leastAlpha).ToArray(); // still descending
+        return LeapHeuristicAlphaSelector.SelectFrom(admissible, form);
     }
 }

@@ -1,4 +1,3 @@
-using MathFuzzy.Clustering.Algorithms.Relational;
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Core.Aggregation.Taga;
 using MathFuzzy.Core.AlphaSelection;
@@ -8,83 +7,44 @@ using MathFuzzy.Core.Matrix;
 namespace MathFuzzy.Clustering.Algorithms.Prototype;
 
 /// <summary>
-/// D-AFC-TAGA — D-AFC with TAGA aggregation instead of transitive closure.
+/// D-AFC-TAGA and D-AFC-TAGA(α) — the direct prototype-based algorithm with a transitive
+/// approximation in place of the transitive closure (Viattchenin and Damaratski 2013).
 ///
 /// Pipeline:
-///   1. Build fuzzy tolerance matrix T
-///   2. Apply TAGA aggregation → T'
-///   3. Run D-PAFC (auto c) on T' across all alpha values
-///   4. Select best result by geometric deviation in original data space
-///      combined with F1 score.
+///   1. Build the fuzzy tolerance matrix T (or take a given T)
+///   2. Compute the transitive approximation T^φ with the aggregation operator φ
+///   3. Select the threshold α* with the leap heuristic on the levels of T^φ, in the ratio
+///      form of the paper (the smallest α_{ℓ−1}/α_ℓ); with a least threshold given, as in
+///      D-AFC-TC(α)
+///   4. Construct and rank the allotments of that level exactly as D-AFC-TC does.
+///
+/// T^φ is a fuzzy equivalence for every operator, so the allotments of a level are the
+/// choices of one typical point per equivalence class (<see cref="ClosureAllotment"/>).
 /// </summary>
 public sealed class DAfcTagaAlgorithm(
     ToleranceMatrixBuilder toleranceBuilder,
     TAGAProcessor          taga,
     ICriterion             criterion,
-    int                    minClusterPower  = 1,
-    int                    maxClusterPower  = 0,
-    int                    maxIntersections = DAfcOptions.AutoIntersections) : IPrototypeClusterer
+    int                    minClusterPower = 1,
+    int                    maxClusterPower = 0,
+    int                    maxResults      = 200,
+    double?                leastAlpha      = null) : IPrototypeClusterer
 {
     public IReadOnlyList<ClusterResult> Run(RawDataMatrix data, CancellationToken ct = default)
+        => Run(toleranceBuilder.Build(data), toleranceBuilder.Normalize(data), ct);
+
+    /// <summary>Runs the algorithm on a given tolerance matrix (see <see cref="DAfcTcAlgorithm.Run(FuzzyToleranceMatrix, RawDataMatrix?, CancellationToken)"/>).</summary>
+    public IReadOnlyList<ClusterResult> Run(
+        FuzzyToleranceMatrix tolerance, RawDataMatrix? normalizedData, CancellationToken ct = default)
     {
-        var Tp = PrototypePipeline.BuildWithTaga(data, toleranceBuilder, taga);
+        var approximation = taga.Apply(tolerance);
+        var levels = approximation.GetDistinctValues();
+        double? threshold = leastAlpha is double least
+            ? DAfcTcAlphaAlgorithm.SelectThreshold(levels, least, LeapForm.Ratio)
+            : LeapHeuristicAlphaSelector.SelectFrom(levels, LeapForm.Ratio);
+        if (threshold is not double alpha) return [];
 
-        var dpafc = new DPafcAlgorithm(
-            AllDistinctAlphaSelector.Instance,
-            criterion,
-            minClusterPower,
-            maxClusterPower,
-            maxIntersections);
-
-        var results = dpafc.Run(Tp, ct);
-        if (results.Count == 0) return [];
-
-        // Re-rank by geometric deviation in original space (lower = better compact clusters)
-        var ranked = results
-            .Select(r => (result: r, dev: ComputeGeometricDeviation(data, r)))
-            .OrderBy(x => x.dev)
-            .ThenByDescending(x => x.result.Score)
-            .Select(x => x.result)
-            .ToList();
-
-        return ranked;
-    }
-
-    private static double ComputeGeometricDeviation(RawDataMatrix data, ClusterResult result)
-    {
-        double totalDev = 0.0;
-        int m = data.Cols;
-        var centroid = new double[m];
-
-        foreach (var memberSet in result.MemberSets)
-        {
-            if (memberSet.Length == 0) continue;
-
-            // Compute geometric center
-            Array.Clear(centroid, 0, m);
-            foreach (var idx in memberSet)
-            {
-                var row = data.GetRow(idx);
-                for (int j = 0; j < m; j++)
-                    centroid[j] += row[j];
-            }
-            for (int j = 0; j < m; j++)
-                centroid[j] /= memberSet.Length;
-
-            // Sum squared distances from centroid
-            foreach (var idx in memberSet)
-            {
-                var row = data.GetRow(idx);
-                double dist = 0.0;
-                for (int j = 0; j < m; j++)
-                {
-                    double d = row[j] - centroid[j];
-                    dist += d * d;
-                }
-                totalDev += dist;
-            }
-        }
-
-        return totalDev;
+        return ClosureAllotment.Solve(approximation, alpha, criterion, minClusterPower, maxClusterPower,
+                                      normalizedData, maxResults, ct);
     }
 }

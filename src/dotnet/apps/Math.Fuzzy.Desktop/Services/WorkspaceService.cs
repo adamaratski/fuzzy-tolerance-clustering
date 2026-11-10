@@ -23,15 +23,14 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public Workset LoadCsv(string path)
     {
-        var labels = LabeledDataset.TryFromCsv(path);
-        var raw    = labels?.Data ?? RawDataMatrix.FromCsv(path);
+        var file = MathFuzzy.Core.IO.DataFile.Load(path);
         var ws = new Workset
         {
             Name         = Path.GetFileName(path),
             SourcePath   = path,
-            RawData      = raw,
-            Labels       = labels,
-            FeatureNames = ReadFeatureNames(path, raw.Cols)
+            RawData      = file.Data,
+            Labels       = LabeledDataset.From(file),
+            FeatureNames = file.FeatureNames
         };
         _worksets.Add(ws);
         Activate(ws);
@@ -40,12 +39,14 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public Workset LoadMatrix(string path)
     {
+        var matrix = FuzzyToleranceMatrix.FromCsv(path);
         var ws = new Workset
         {
             Name            = Path.GetFileName(path),
             SourcePath      = path,
             IsMatrixInput   = true,
-            ToleranceMatrix = FuzzyToleranceMatrix.FromCsv(path)
+            InputMatrix     = matrix,
+            ToleranceMatrix = matrix.Clone()
         };
         _worksets.Add(ws);
         Activate(ws);
@@ -77,36 +78,6 @@ public sealed class WorkspaceService : IWorkspaceService
         ws.ToleranceMatrix = new MaxMinTransitiveClosure().Compute(ws.ToleranceMatrix);
         ws.ClosureApplied  = true;
         DataChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    private static readonly HashSet<string> LabelColumnKeywords =
-        new(StringComparer.OrdinalIgnoreCase) { "class", "label", "labels", "type", "species", "variety", "target", "category", "group" };
-
-    /// <summary>
-    /// Header names of the numeric feature columns, in the order the loaders keep them.
-    /// Falls back to x1…xm when there is no header or the names cannot be matched to the columns.
-    /// </summary>
-    private static IReadOnlyList<string> ReadFeatureNames(string path, int cols)
-    {
-        var fallback = Enumerable.Range(1, cols).Select(i => $"x{i}").ToArray();
-        var lines = File.ReadLines(path).Where(l => !string.IsNullOrWhiteSpace(l)).Take(2).ToArray();
-        if (lines.Length < 2) return fallback;
-
-        static bool IsNumber(string s) => double.TryParse(s.Trim(),
-            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _);
-
-        var header = lines[0].Split(',').Select(h => h.Trim().TrimStart('\uFEFF')).ToArray();
-        if (IsNumber(header[0])) return fallback;
-
-        var sample = lines[1].Split(',');
-        var names = Enumerable.Range(0, System.Math.Min(header.Length, sample.Length))
-            .Where(j => IsNumber(sample[j]))
-            .Select(j => header[j])
-            .ToList();
-        // A numeric label column (e.g. wine's "class") is dropped by the labelled loader.
-        if (names.Count == cols + 1)
-            names.Remove(names.FirstOrDefault(LabelColumnKeywords.Contains) ?? names[^1]);
-        return names.Count == cols ? names : fallback;
     }
 
     /// <summary>Maps the panel / CLI key (minmax | max | none) to the normalisation, as AlgorithmFactory does.</summary>

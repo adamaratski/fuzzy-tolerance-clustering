@@ -1,8 +1,8 @@
-% Viattchenin Fuzzy Clustering Toolbox (VFC)
-% Version 1.0  —  June 2026
+% VFC toolbox: heuristic possibilistic clustering on fuzzy tolerance relations
+% Version 1.1
 %
-% Implementation of direct fuzzy clustering algorithms based on fuzzy
-% tolerance relations, as described in:
+% Plain MATLAB / GNU Octave functions for the direct clustering algorithms
+% described in
 %
 %   Viattchenin, D.A. "A Heuristic Approach to Possibilistic Clustering".
 %   Studies in Fuzziness and Soft Computing, vol. 297. Springer, 2013.
@@ -12,71 +12,45 @@
 %   Damaratski, A. "Fuzzy Tolerance Clustering: Theory, Algorithms, and
 %   Implementations", 2026.
 %
-% =========================================================================
-% USAGE
-%   Add the folder containing +vfc/ to the MATLAB path:
+% The functions follow the statements of the algorithms and favour clarity
+% over speed: they are meant for small data and for checking results by hand.
+% The .NET library of the same repository is the complete and fast
+% implementation.
 %
-%     addpath(fullfile('<repository root>', 'src', 'matlab'));
+% Usage
+%   addpath(fullfile('<repository root>', 'src', 'matlab'));
+%   T = vfc.build_tolerance_matrix(X, 'Distance', 'squared-euclidean', 'Normalization', 'max');
+%   r = vfc.dpafc(T);
+%   vfc.print_results(r);
 %
-%   Then call functions as:
+% Tolerance relations
+%   vfc.build_tolerance_matrix   fuzzy tolerance T from attribute data
+%   vfc.snap_levels              merge levels that differ by rounding noise
+%   vfc.max_min_closure          max-min transitive closure of T
+%   vfc.alpha_levels             distinct levels of a relation
+%   vfc.alpha_leap               threshold by the leap heuristic
 %
-%     T = vfc.build_tolerance_matrix(X);
-%     r = vfc.dafc(T, 3, 0.7);
+% Relational algorithms (input: a fuzzy tolerance matrix)
+%   vfc.dafc                     allotments among c clusters at one level
+%   vfc.dafc_c                   D-AFC(c): all levels, automatic relaxation of the separation
+%   vfc.dpafc                    D-PAFC: principal allotment, the number of clusters is found
+%                                (with opts.max_power = u: one pass of D-AFC(u))
 %
-% =========================================================================
-% ALGORITHMS
+% Prototype-based and hierarchical algorithms (input: attribute data)
+%   vfc.dafc_tc                  D-AFC-TC: closure and leap heuristic
+%   vfc.dpafc_tc                 D-PAFC-TC: first splitting level of the closure
+%   vfc.hafc_tc                  H-AFC-TC: the allotment of every level of the closure
+%   vfc.closure_allotment        best allotment of one level of a closure
 %
-%   vfc.build_tolerance_matrix   Build fuzzy tolerance matrix T from raw data
-%   vfc.max_min_closure          Max-min transitive closure T~ of T
-%   vfc.alpha_levels             Extract all distinct alpha-cut levels
-%   vfc.alpha_leap               Select alpha* via leap heuristic (maximal leap)
+% Output
+%   vfc.print_results            table of allotments, external indices for labelled data
 %
-%   vfc.dafc          D-AFC    : Direct AFC, fixed c and alpha
-%   vfc.dpafc         D-PAFC   : Direct PAFC, automatic c
-%   vfc.dafc_tc       D-AFC-TC : D-AFC with transitive closure (prototype)
-%   vfc.dpafc_tc      D-PAFC-TC: D-PAFC on transitive closure (prototype)
+% Not in this toolbox (see the .NET library): transitive approximations (TAGA),
+% D-AFC(u) (only a single pass for a fixed bound: vfc.dpafc with opts.max_power),
+% validity measures, generation of
+% fuzzy inference systems.
 %
-%   vfc.print_results            Display clustering results
+% Tests:    tests/run_tests.m   (published examples; prints "all tests passed")
+% Example:  examples/demo.m
 %
-% =========================================================================
-% ALGORITHM OVERVIEW
-%
-%  D-AFC (Relational, requires T)
-%  ─────────────────────────────
-%  Given T (n×n fuzzy tolerance matrix), cluster count c, and threshold α:
-%    1. For each combination of c objects as candidate centers:
-%       a. Compute alpha-neighborhood:  C_l = { j : T(c_l, j) >= alpha }
-%       b. Validate cluster power:      |C_l| >= min_power
-%       c. Validate coverage:           C_1 ∪ ... ∪ C_c = {1,...,n}
-%    2. Score valid allotments with F1 or F2 criterion.
-%    3. Return top-k results sorted by score.
-%
-%  D-PAFC (Relational, requires T)
-%  ───────────────────────────────
-%  Iterates c = 2, 3, ... and all distinct alpha levels.
-%  Stops when two consecutive values of c yield no valid allotments.
-%
-%  D-AFC-TC / D-PAFC-TC (Prototype, requires raw data X)
-%  ──────────────────────────────────────────────────────
-%  1. Normalize X and compute pairwise distances.
-%  2. Build T(i,j) = 1 - dist(x_i, x_j).
-%  3. Compute max-min transitive closure T~.
-%  4. D-AFC-TC : select alpha* via leap heuristic, run D-AFC at alpha*.
-%     D-PAFC-TC: run D-PAFC on T~ (all alpha levels).
-%
-% =========================================================================
-% QUALITY CRITERIA
-%
-%  F1 = sum_l [ mean_{j in C_l} T(c_l, j) ] - alpha * c   (maximize)
-%  F2 = mean_l [ mean_{j in C_l} T(c_l, j) ]              (maximize)
-%
-% =========================================================================
-% EXAMPLES
-%   See examples/ directory:
-%     demo_iris.m        Iris dataset (n=150, d=4, 3 classes)
-%     demo_synthetic.m   Synthetic 2-D datasets
-%
-% =========================================================================
-% AUTHORS
-%   Dmitry Viattchenin    — original algorithms and theoretical framework
-%   Aliaksandr Damaratski — MATLAB implementation, 2026
+% Algorithms: D. A. Viattchenin. Implementation: A. Damaratski.

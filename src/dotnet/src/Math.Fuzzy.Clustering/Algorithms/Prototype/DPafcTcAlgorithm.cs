@@ -1,73 +1,53 @@
-using MathFuzzy.Clustering.Algorithms.Relational;
 using MathFuzzy.Clustering.Results;
-using MathFuzzy.Core.AlphaSelection;
 using MathFuzzy.Core.Criteria;
 using MathFuzzy.Core.Matrix;
 
 namespace MathFuzzy.Clustering.Algorithms.Prototype;
 
 /// <summary>
-/// D-PAFC-TC — principal allotment with transitive closure (Viattchenin 2013, sec. 2.3.2).
+/// D-PAFC-TC — the principal allotment with the transitive closure (Viattchenin 2013, sec. 2.3.2).
 ///
-/// The leap heuristic is not used: for the ascending sequence α₀ &lt; α₁ &lt; … of levels
-/// of T̃ the α₀-cut is the whole set (Lemma 1.2), so the principal allotment — the
-/// allotment among the minimal number c* ≥ 2 of fully separated clusters — is
-/// constructed at α₁, the first level at which the closure splits into several
-/// equivalence classes. Steps 4–9 of D-AFC-TC (single-level D-AFC with the geometric
-/// tiebreaker) are then applied at that level.
-///
-/// Pass <paramref name="exhaustive"/> = true to obtain the former behaviour: a sweep
-/// over c = 2..n and all levels of T̃ returning every valid allotment ranked by score.
+/// The leap heuristic is not used: for the ascending sequence α₀ &lt; α₁ &lt; … of levels of T̃
+/// the principal allotment — the allotment among the least number c* ≥ 2 of fully separated
+/// clusters — is constructed at the first level at which the closure splits into several
+/// equivalence classes that satisfy the power bounds. Its allotments are then ranked as in
+/// D-AFC-TC (criterion, then the geometric tie-breaking).
 /// </summary>
 public sealed class DPafcTcAlgorithm(
     ToleranceMatrixBuilder  toleranceBuilder,
     MaxMinTransitiveClosure closure,
     ICriterion              criterion,
-    int                     minClusterPower  = 1,
-    int                     maxClusterPower  = 0,
-    int                     maxIntersections = DAfcOptions.AutoIntersections,
-    bool                    exhaustive       = false) : IPrototypeClusterer
+    int                     minClusterPower = 1,
+    int                     maxClusterPower = 0,
+    int                     maxResults      = 200) : IPrototypeClusterer
 {
     public IReadOnlyList<ClusterResult> Run(RawDataMatrix data, CancellationToken ct = default)
+        => Run(toleranceBuilder.Build(data), toleranceBuilder.Normalize(data), ct);
+
+    /// <summary>Runs the algorithm on a given tolerance matrix (see <see cref="DAfcTcAlgorithm.Run(FuzzyToleranceMatrix, RawDataMatrix?, CancellationToken)"/>).</summary>
+    public IReadOnlyList<ClusterResult> Run(
+        FuzzyToleranceMatrix tolerance, RawDataMatrix? normalizedData, CancellationToken ct = default)
+        => FirstAdmissibleLevel(closure.Compute(tolerance), criterion, minClusterPower, maxClusterPower,
+                                normalizedData, maxResults, ct);
+
+    /// <summary>
+    /// The allotments of the lowest level of a fuzzy equivalence that has at least two classes
+    /// and satisfies the power bounds; empty when no level does.
+    /// </summary>
+    internal static IReadOnlyList<ClusterResult> FirstAdmissibleLevel(
+        FuzzyToleranceMatrix equivalence, ICriterion criterion, int minClusterPower, int maxClusterPower,
+        RawDataMatrix? normalizedData, int maxResults, CancellationToken ct)
     {
-        var Tt = PrototypePipeline.BuildWithClosure(data, toleranceBuilder, closure);
-
-        if (exhaustive)
+        foreach (double alpha in equivalence.GetDistinctValues().Order())
         {
-            var dpafc = new DPafcAlgorithm(
-                AllDistinctAlphaSelector.Instance,
-                criterion,
-                minClusterPower,
-                maxClusterPower,
-                maxIntersections);
-            return dpafc.Run(Tt, ct);
+            ct.ThrowIfCancellationRequested();
+            var found = ClosureAllotment.Solve(equivalence, alpha, criterion, minClusterPower, maxClusterPower,
+                                               normalizedData, maxResults, ct);
+            if (found.Count > 0) return found;
         }
-
-        int n = Tt.Size;
-        var ascending = Tt.GetDistinctValues().OrderBy(a => a).ToArray();
-
-        // α₁ = first level whose cut has at least two equivalence classes.
-        double? alphaStar = null;
-        int classCount = 0;
-        foreach (var alpha in ascending)
-        {
-            classCount = PrototypePipeline.CountAlphaClasses(Tt, alpha);
-            if (classCount >= 2) { alphaStar = alpha; break; }
-        }
-        if (alphaStar is not double a1 || classCount > n) return [];
-
-        var normalized = toleranceBuilder.Normalize(data);
-        var dafc = new DAfcAlgorithm(
-            new DAfcOptions(classCount, minClusterPower, maxClusterPower, maxIntersections),
-            new ManualAlphaSelector([a1]),
-            criterion);
-
-        var results = dafc.RunForAlpha(Tt, a1, ct);
-        return [.. results
-            .Select(r => r with { TiebreakerScore = DAfcTcAlgorithm.ComputeTiebreakerScore(r, normalized) })
-            .Order(ClusterResult.Order)];
+        return [];
     }
 
     public FuzzyToleranceMatrix BuildClosureMatrix(RawDataMatrix data)
-        => PrototypePipeline.BuildWithClosure(data, toleranceBuilder, closure);
+        => closure.Compute(toleranceBuilder.Build(data));
 }

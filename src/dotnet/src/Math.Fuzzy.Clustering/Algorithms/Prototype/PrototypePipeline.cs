@@ -4,23 +4,11 @@ using MathFuzzy.Core.Matrix;
 namespace MathFuzzy.Clustering.Algorithms.Prototype;
 
 /// <summary>
-/// Shared pipeline for prototype-based algorithms:
-///   RawDataMatrix → [normalize + distance] → FuzzyToleranceMatrix
-///                → [optional transitive closure or TAGA]
-///                → FuzzyToleranceMatrix ready for relational clustering
+/// Equivalence classes of the levels of a fuzzy equivalence (a transitive closure or a
+/// transitive approximation), shared by the prototype-based and hierarchical algorithms.
 /// </summary>
 internal static class PrototypePipeline
 {
-    internal static FuzzyToleranceMatrix BuildWithClosure(
-        RawDataMatrix data,
-        ToleranceMatrixBuilder builder,
-        MaxMinTransitiveClosure closure)
-    {
-        var T  = builder.Build(data);
-        var Tt = closure.Compute(T);
-        return Tt;
-    }
-
     /// <summary>
     /// Number of equivalence classes of a max-min TRANSITIVE matrix at level alpha.
     /// For a transitive closure T̃ the α-cut relation is an equivalence, so the
@@ -73,15 +61,5 @@ internal static class PrototypePipeline
         }
 
         return classes;
-    }
-
-    internal static FuzzyToleranceMatrix BuildWithTaga(
-        RawDataMatrix data,
-        ToleranceMatrixBuilder builder,
-        MathFuzzy.Core.Aggregation.Taga.TAGAProcessor taga)
-    {
-        var T  = builder.Build(data);
-        var Tp = taga.Apply(T);
-        return Tp;
     }
 }

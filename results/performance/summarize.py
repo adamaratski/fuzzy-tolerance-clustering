@@ -3,9 +3,12 @@
 Usage: python summarize.py  (writes summary.md next to this file)
 """
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")   # consoles without Unicode
 here = Path(__file__).parent
 records = [json.loads(line) for line in (here / "measurements.jsonl").read_text(encoding="utf-8").splitlines() if line]
 
@@ -39,7 +42,8 @@ for variant, cores in variants:
     lines.append(f"| {variant} | {cores} | " + " | ".join(cells) + " |")
 lines.append("")
 
-for experiment, title in [("search", "D-AFC(3) search on Iris"), ("hafc", "H-AFC-TC on Iris"), ("stages", "Pipeline stages")]:
+for experiment, title in [("search", "D-AFC(3) search on Iris"), ("bound", "Exact-cover bound, D-AFC(3)"),
+                          ("hafc", "H-AFC-TC on Iris"), ("stages", "Pipeline stages")]:
     lines.append(f"## {title}")
     lines.append("")
     lines.append("| Variant | data | n | cores | time | note |")

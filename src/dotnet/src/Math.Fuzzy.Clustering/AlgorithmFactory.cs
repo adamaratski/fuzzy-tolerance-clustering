@@ -14,13 +14,19 @@ namespace MathFuzzy.Clustering;
 
 /// <summary>
 /// Resolves clustering algorithm instances from string keys.
-/// Accepted keys (case-insensitive): dafc, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc,
-/// dafc-taga, dpafc-taga, hafc-tc, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr.
+/// Accepted keys (case-insensitive): dafc, dafc-u, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc,
+/// dafc-taga, dafc-taga-alpha, dpafc-taga, hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr.
 /// </summary>
 public static class AlgorithmFactory
 {
+    private const string ValidKeys =
+        "dafc, dafc-u, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc, dafc-taga, dafc-taga-alpha, dpafc-taga, " +
+        "hafc-tc, hafc-taga, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr";
+
+    private static readonly string[] AllKeys = ValidKeys.Split(", ");
+
     /// <summary>
-    /// Runs the specified algorithm and returns flat cluster results.
+    /// Runs the specified algorithm on attribute data and returns flat cluster results.
     /// For hierarchical algorithms (<c>hafc-tc</c>), returns the levels list.
     /// For DR algorithms, clusters after dimension reduction.
     /// </summary>
@@ -30,72 +36,187 @@ public static class AlgorithmFactory
         AlgorithmOptions options,
         CancellationToken ct = default)
     {
-        var builder   = CreateToleranceBuilder(options);
-        var closure   = new MaxMinTransitiveClosure();
-        var taga      = BuildTaga(options.TagaOperator);
-        var criterion = CreateCriterion(options.Criterion);
+        string key = NormalizeKey(algorithm);
+        var builder = CreateToleranceBuilder(options);
 
-        return algorithm.ToLowerInvariant().Trim() switch
+        if (IsReduction(key))
         {
-            "dafc" => RunDafc(data, builder, options, criterion, ct),
+            var reduced = CreateReducer(key, options).Reduce(data, ct);
+            return RunOnTolerance("dpafc", builder.Build(reduced), builder.Normalize(reduced),
+                                  options with { MaxIntersections = null }, ct);
+        }
 
-            "dpafc" =>
-                new DPafcAlgorithm(AllDistinctAlphaSelector.Instance, criterion,
-                                   options.MinClusterPower, options.MaxClusterPower,
-                                   options.MaxIntersections, options.LevelProgress)
-                    .Run(BuildMatrix(data, builder), ct),
-
-            "dafc-tc" =>
-                RunDafcTc(data, builder, closure, options, criterion, ct),
-
-            "dafc-tc-alpha" =>
-                new DAfcTcAlphaAlgorithm(builder, closure, criterion, options.UserAlpha ?? 0.5)
-                    .Run(data, ct),
-
-            "dpafc-tc" =>
-                new DPafcTcAlgorithm(builder, closure, criterion)
-                    .Run(data, ct),
-
-            "dafc-taga" =>
-                new DAfcTagaAlgorithm(builder, taga, criterion)
-                    .Run(data, ct),
-
-            "dpafc-taga" =>
-                new DPafcTagaAlgorithm(builder, taga, criterion)
-                    .Run(data, ct),
-
-            "hafc-tc" =>
-                new HAfcTcAlgorithm(builder, closure, criterion).Run(data, ct).Levels,
-
-            "dpafc-dr" or "dpafc-tc-dr" or "dpafc-taga-dr" =>
-                RunDr(CreateReducer(algorithm, options), data, builder, options, criterion, ct),
-
-            _ => throw new ArgumentException(
-                     $"Unknown algorithm key: '{algorithm}'. " +
-                     "Valid keys: dafc, dpafc, dafc-tc, dafc-tc-alpha, dpafc-tc, dafc-taga, dpafc-taga, " +
-                     "hafc-tc, dpafc-dr, dpafc-tc-dr, dpafc-taga-dr")
-        };
+        return RunOnTolerance(key, builder.Build(data), builder.Normalize(data), options, ct);
     }
 
-    private static IReadOnlyList<ClusterResult> RunDafc(
-        RawDataMatrix data, ToleranceMatrixBuilder builder,
-        AlgorithmOptions options, ICriterion criterion, CancellationToken ct)
+    /// <summary>
+    /// Runs the specified algorithm on a fuzzy tolerance matrix given directly (a relational
+    /// data set). The prototype-based algorithms then work without the geometric tie-breaking,
+    /// which needs attribute data; the dimension-reduction algorithms are not applicable.
+    /// </summary>
+    public static IReadOnlyList<ClusterResult> Run(
+        string               algorithm,
+        FuzzyToleranceMatrix tolerance,
+        AlgorithmOptions     options,
+        CancellationToken    ct = default)
     {
-        var matrix = BuildMatrix(data, builder);
-        int c = options.ClusterCount ?? throw new InvalidOperationException("D-AFC requires --clusters");
-
-        // When --alpha is provided, search only that single level (fast, predictable).
-        // Otherwise fall back to all distinct levels (exhaustive, slow for large n).
-        IAlphaSelector selector = options.UserAlpha.HasValue
-            ? new ManualAlphaSelector([ResolveAlpha(matrix, options.UserAlpha.Value)])
-            : AllDistinctAlphaSelector.Instance;
-
-        var dafc = new DAfcAlgorithm(
-            new DAfcOptions(c, options.MinClusterPower, options.MaxClusterPower,
-                            LevelProgress: options.LevelProgress),
-            selector, criterion);
-        return dafc.Run(matrix, ct);
+        string key = NormalizeKey(algorithm);
+        if (IsReduction(key))
+            throw new ArgumentException(
+                $"Algorithm '{key}' reduces the attribute space and needs attribute data, not a tolerance matrix.");
+        return RunOnTolerance(key, tolerance, normalizedData: null, options, ct);
     }
+
+    private static IReadOnlyList<ClusterResult> RunOnTolerance(
+        string key, FuzzyToleranceMatrix tolerance, RawDataMatrix? normalizedData,
+        AlgorithmOptions options, CancellationToken ct)
+    {
+        var builder   = CreateToleranceBuilder(options);   // used by the data entry points of the algorithms
+        var closure   = new MaxMinTransitiveClosure();
+        var criterion = CreateCriterion(options.Criterion);
+        int minPower  = options.MinClusterPower;
+        int maxPower  = options.MaxClusterPower;
+
+        switch (key)
+        {
+            case "dafc":
+            {
+                int clusterCount = options.ClusterCount
+                    ?? throw new ArgumentException("D-AFC(c) needs the number of clusters (--clusters).");
+
+                // A given threshold restricts the search to the nearest level not above it.
+                IAlphaSelector selector = options.UserAlpha.HasValue
+                    ? new ManualAlphaSelector([ResolveAlpha(tolerance, options.UserAlpha.Value)])
+                    : AllDistinctAlphaSelector.Instance;
+
+                return new DAfcAlgorithm(
+                    new DAfcOptions(clusterCount, minPower, maxPower,
+                                    MaxIntersections: options.MaxIntersections ?? DAfcOptions.AutoIntersections,
+                                    MaxCombinations:  options.MaxSearchNodes,
+                                    MaxResults:       options.MaxResults,
+                                    LevelProgress:    options.LevelProgress,
+                                    Diagnostics:      options.Diagnostics),
+                    selector, criterion).Run(tolerance, ct);
+            }
+
+            case "dafc-u":
+            {
+                if (maxPower < 1)
+                    throw new ArgumentException("D-AFC(u) needs the maximal number of objects in a cluster (--max-size).");
+                return new DAfcUAlgorithm(maxPower, criterion, minPower,
+                                          options.MaxIntersections ?? DAfcOptions.AutoIntersections,
+                                          options.MaxSearchNodes, options.Diagnostics, options.MaxResults,
+                                          options.LevelProgress)
+                    .Run(tolerance, ct);
+            }
+
+            case "dpafc":
+                return new DPafcAlgorithm(AllDistinctAlphaSelector.Instance, criterion, minPower, maxPower,
+                                          options.MaxIntersections ?? 0, options.LevelProgress,
+                                          options.MaxSearchNodes, options.Diagnostics, options.MaxResults)
+                    .Run(tolerance, ct);
+
+            case "dafc-tc":
+            {
+                var algorithm = new DAfcTcAlgorithm(builder, closure, criterion, minPower, maxPower, options.MaxResults);
+                return options.ClusterCount is int clusterCount
+                    ? algorithm.RunForClusterCount(tolerance, clusterCount, normalizedData, ct)
+                    : algorithm.Run(tolerance, normalizedData, ct);
+            }
+
+            case "dafc-tc-alpha":
+            {
+                double leastAlpha = options.UserAlpha
+                    ?? throw new ArgumentException("D-AFC-TC(α) needs the least threshold (--alpha).");
+                return new DAfcTcAlphaAlgorithm(builder, closure, criterion, leastAlpha, minPower, maxPower, options.MaxResults)
+                    .Run(tolerance, normalizedData, ct);
+            }
+
+            case "dpafc-tc":
+                return new DPafcTcAlgorithm(builder, closure, criterion, minPower, maxPower, options.MaxResults)
+                    .Run(tolerance, normalizedData, ct);
+
+            case "dafc-taga":
+                return new DAfcTagaAlgorithm(builder, BuildTaga(options.TagaOperator), criterion, minPower, maxPower, options.MaxResults)
+                    .Run(tolerance, normalizedData, ct);
+
+            case "dafc-taga-alpha":
+            {
+                double leastAlpha = options.UserAlpha
+                    ?? throw new ArgumentException("D-AFC-TAGA(α) needs the least threshold (--alpha).");
+                return new DAfcTagaAlgorithm(builder, BuildTaga(options.TagaOperator), criterion, minPower, maxPower,
+                                             options.MaxResults, leastAlpha)
+                    .Run(tolerance, normalizedData, ct);
+            }
+
+            case "dpafc-taga":
+                return new DPafcTagaAlgorithm(builder, BuildTaga(options.TagaOperator), criterion, minPower, maxPower, options.MaxResults)
+                    .Run(tolerance, normalizedData, ct);
+
+            case "hafc-tc":
+                return new HAfcTcAlgorithm(builder, closure, criterion, minPower).Run(tolerance, normalizedData, ct).Levels;
+
+            case "hafc-taga":
+                return HAfcTcAlgorithm.Build(BuildTaga(options.TagaOperator).Apply(tolerance), criterion, minPower,
+                                             normalizedData, ct).Levels;
+
+            default:
+                throw new ArgumentException($"Unknown algorithm key: '{key}'. Valid keys: {ValidKeys}");
+        }
+    }
+
+    /// <summary>
+    /// Checks that every option that was set applies to the algorithm, and that the options the
+    /// algorithm needs are present; an <see cref="ArgumentException"/> names the offending ones.
+    /// An option that an algorithm would silently ignore is an error, not a no-op.
+    /// </summary>
+    public static void EnsureOptionsApply(string algorithm, AlgorithmOptions options)
+    {
+        string key = NormalizeKey(algorithm);
+        var problems = new List<string>();
+
+        void Reject(bool isSet, string option, string usedBy)
+        {
+            if (isSet) problems.Add($"{option} does not apply to '{key}' (it is used by {usedBy})");
+        }
+
+        if (key is not ("dafc" or "dafc-tc"))
+            Reject(options.ClusterCount.HasValue, "the number of clusters", "dafc, dafc-tc");
+        if (key is not ("dafc" or "dafc-tc-alpha" or "dafc-taga-alpha"))
+            Reject(options.UserAlpha.HasValue, "the threshold α", "dafc, dafc-tc-alpha, dafc-taga-alpha");
+        if (key is not ("dafc" or "dafc-u" or "dpafc"))
+            Reject(options.MaxIntersections.HasValue, "the intersection bound w", "dafc, dafc-u, dpafc");
+        if (key == "dafc-u" && options.MaxClusterPower < 1)
+            problems.Add("'dafc-u' needs the maximal number of objects in a cluster");
+        if (!key.Contains("taga"))
+            Reject(!string.IsNullOrEmpty(options.TagaOperator), "the aggregation operator", "the TAGA algorithms");
+
+        if (key == "dafc" && !options.ClusterCount.HasValue)
+            problems.Add("'dafc' needs the number of clusters");
+        if (key is "dafc-tc-alpha" or "dafc-taga-alpha" && !options.UserAlpha.HasValue)
+            problems.Add($"'{key}' needs the least threshold α");
+        if (options.ClusterCount is < 2)
+            problems.Add("the number of clusters must be at least 2");
+        if (options.UserAlpha is < 0.0 or > 1.0)
+            problems.Add("the threshold α must lie in [0, 1]");
+        if (options.MaxIntersections is < 0)
+            problems.Add("the intersection bound w must not be negative");
+        if (options.MinClusterPower < 1)
+            problems.Add("the least number of objects in a cluster must be at least 1");
+
+        if (problems.Count > 0)
+            throw new ArgumentException(string.Join("; ", problems) + ".");
+    }
+
+    private static string NormalizeKey(string algorithm)
+    {
+        string key = algorithm.ToLowerInvariant().Trim();
+        if (Array.IndexOf(AllKeys, key) < 0)
+            throw new ArgumentException($"Unknown algorithm key: '{algorithm}'. Valid keys: {ValidKeys}");
+        return key;
+    }
+
+    private static bool IsReduction(string key) => key.EndsWith("-dr", StringComparison.Ordinal);
 
     /// <summary>
     /// Resolves a user-supplied alpha to the nearest matrix value ≤ userAlpha.
@@ -107,41 +228,6 @@ public static class AlgorithmFactory
         double found = values.FirstOrDefault(v => v <= userAlpha);
         return found > 0.0 ? found : (values.Count > 0 ? values[^1] : userAlpha);
     }
-
-    private static IReadOnlyList<ClusterResult> RunDafcTc(
-        RawDataMatrix data, ToleranceMatrixBuilder builder,
-        MaxMinTransitiveClosure closure, AlgorithmOptions options,
-        ICriterion criterion, CancellationToken ct)
-    {
-        if (options.ClusterCount.HasValue)
-        {
-            // Fixed c: build closure, search ALL distinct alpha levels in T̃.
-            // The closure compresses many raw values → far fewer distinct levels;
-            // this makes the search tractable even for n~150.
-            var Tt   = new DAfcTcAlgorithm(builder, closure, criterion).BuildClosureMatrix(data);
-            var dafc = new DAfcAlgorithm(
-                new DAfcOptions(options.ClusterCount.Value, options.MinClusterPower, options.MaxClusterPower,
-                                LevelProgress: options.LevelProgress),
-                AllDistinctAlphaSelector.Instance, criterion);
-            return dafc.Run(Tt, ct);
-        }
-        // Auto-c: full D-AFC-TC
-        return new DAfcTcAlgorithm(builder, closure, criterion).Run(data, ct);
-    }
-
-    private static IReadOnlyList<ClusterResult> RunDr(
-        IDimensionReducer reducer, RawDataMatrix data,
-        ToleranceMatrixBuilder builder, AlgorithmOptions options,
-        ICriterion criterion, CancellationToken ct)
-    {
-        var reduced = reducer.Reduce(data, ct);
-        // After DR, run D-PAFC on the reduced data
-        var matrix = BuildMatrix(reduced, builder);
-        return new DPafcAlgorithm(AllDistinctAlphaSelector.Instance, criterion).Run(matrix, ct);
-    }
-
-    private static FuzzyToleranceMatrix BuildMatrix(RawDataMatrix data, ToleranceMatrixBuilder builder)
-        => builder.Build(data);
 
     /// <summary>
     /// The tolerance-matrix builder (distance, normalisation, accuracy threshold) named by the options.
@@ -201,21 +287,22 @@ public static class AlgorithmFactory
         };
     }
 
-    private static TAGAProcessor BuildTaga(string? operatorName)
+    /// <summary>
+    /// The transitive-approximation processor for an operator name: max, min, mean, median,
+    /// umedian, dmedian, or auto (the default) — the operator whose approximation is nearest to T.
+    /// </summary>
+    public static TAGAProcessor BuildTaga(string? operatorName) => operatorName?.ToLowerInvariant().Trim() switch
     {
-        ITAGAOperator op = operatorName?.ToLowerInvariant().Trim() switch
-        {
-            null or "" or "mean" => MeanTAGA.Instance,
-            "maximum" or "max"   => MaximumTAGA.Instance,
-            "minimum" or "min"   => MinimumTAGA.Instance,
-            "median"             => MedianTAGA.Instance,
-            "umedian" or "uppermedian" => UpperMedianTAGA.Instance,
-            "dmedian" or "lowermedian" => LowerMedianTAGA.Instance,
-            _ => throw new ArgumentException(
-                     $"Unknown TAGA operator: '{operatorName}'. Valid names: max, min, mean, median, umedian, dmedian")
-        };
-        return new TAGAProcessor(op);
-    }
+        null or "" or "auto" or "automatic" => TAGAProcessor.Automatic,
+        "mean"                     => new TAGAProcessor(MeanTAGA.Instance),
+        "maximum" or "max"         => new TAGAProcessor(MaximumTAGA.Instance),
+        "minimum" or "min"         => new TAGAProcessor(MinimumTAGA.Instance),
+        "median"                   => new TAGAProcessor(MedianTAGA.Instance),
+        "umedian" or "uppermedian" => new TAGAProcessor(UpperMedianTAGA.Instance),
+        "dmedian" or "lowermedian" => new TAGAProcessor(LowerMedianTAGA.Instance),
+        _ => throw new ArgumentException(
+                 $"Unknown TAGA operator: '{operatorName}'. Valid names: auto, max, min, mean, median, umedian, dmedian")
+    };
 }
 
 /// <summary>Options for algorithm factory — mirrors both CLI flags and WPF panel settings.</summary>
@@ -238,8 +325,18 @@ public sealed record AlgorithmOptions(
     /// </summary>
     double? Accuracy        = null,
     /// <summary>
-    /// D-PAFC: largest admissible number of objects in intersection areas of the clusters;
-    /// 0 = fully separated clusters (the principal allotment of the monograph).
+    /// Largest admissible number of objects in intersection areas of the clusters (w).
+    /// Null = the algorithm's own rule: D-AFC(c) starts from w = 0 and relaxes it only while no
+    /// allotment among c clusters exists; D-PAFC uses w = 0 (fully separated clusters).
     /// </summary>
-    int MaxIntersections    = 0
+    int? MaxIntersections   = null,
+    /// <summary>
+    /// Node budget of a combination search. When it is spent the search stops and returns the
+    /// best allotments found so far; <see cref="Diagnostics"/> reports that this happened.
+    /// </summary>
+    long MaxSearchNodes     = 500_000_000L,
+    /// <summary>Largest number of allotments returned, best first.</summary>
+    int MaxResults          = 200,
+    /// <summary>Optional collector of search statistics (node count, budget exhaustion).</summary>
+    SearchDiagnostics? Diagnostics = null
 );

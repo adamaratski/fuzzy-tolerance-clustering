@@ -1,4 +1,3 @@
-using MathFuzzy.Clustering.Algorithms.Relational;
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Core.AlphaSelection;
 using MathFuzzy.Core.Criteria;
@@ -7,99 +6,70 @@ using MathFuzzy.Core.Matrix;
 namespace MathFuzzy.Clustering.Algorithms.Prototype;
 
 /// <summary>
-/// D-AFC-TC — Direct AFC with Transitive Closure.
+/// D-AFC-TC — the direct algorithm with the transitive closure (Viattchenin 2013, sec. 2.3.1).
 ///
 /// Pipeline:
-///   1. Build fuzzy tolerance matrix T from raw data
-///   2. Compute max-min transitive closure T̃
-///   3. Select single alpha* via leap heuristic
-///   4. Run D-AFC on T̃ at alpha*
+///   1. Build the fuzzy tolerance matrix T from the data (or take a given T)
+///   2. Compute the max-min transitive closure T̃
+///   3. Select the threshold α* with the leap heuristic
+///   4. Construct the allotments of the level α* and rank them by the criterion;
+///      ties are resolved by the distance of the typical points to the cluster centroids.
 ///
-/// Cluster count c is determined structurally: on a transitive closure the α-cut
-/// relation is an equivalence, so valid allotments at alpha* exist only for
-/// c = number of equivalence classes — a single D-AFC run suffices.
+/// The number of clusters is determined structurally: on a transitive closure the α-cut
+/// relation is an equivalence, so the allotments of a level are exactly the choices of one
+/// typical point per equivalence class (see <see cref="ClosureAllotment"/>).
 /// </summary>
 public sealed class DAfcTcAlgorithm(
     ToleranceMatrixBuilder  toleranceBuilder,
     MaxMinTransitiveClosure closure,
     ICriterion              criterion,
-    int                     minClusterPower  = 1,
-    int                     maxClusterPower  = 0,
-    int                     maxIntersections = DAfcOptions.AutoIntersections) : IPrototypeClusterer
+    int                     minClusterPower = 1,
+    int                     maxClusterPower = 0,
+    int                     maxResults      = 200) : IPrototypeClusterer
 {
-    private readonly LeapHeuristicAlphaSelector _leap = LeapHeuristicAlphaSelector.Instance;
-
     public IReadOnlyList<ClusterResult> Run(RawDataMatrix data, CancellationToken ct = default)
+        => Run(toleranceBuilder.Build(data), toleranceBuilder.Normalize(data), ct);
+
+    /// <summary>
+    /// Runs the algorithm on a given tolerance matrix. <paramref name="normalizedData"/> — the
+    /// normalised attribute data the matrix was built from — enables the geometric tie-breaking;
+    /// pass null for a relation given directly.
+    /// </summary>
+    public IReadOnlyList<ClusterResult> Run(
+        FuzzyToleranceMatrix tolerance, RawDataMatrix? normalizedData, CancellationToken ct = default)
     {
-        var Tt     = PrototypePipeline.BuildWithClosure(data, toleranceBuilder, closure);
-        var alphas = _leap.Select(Tt);
-        if (alphas.Count == 0) return [];
+        var closureMatrix = closure.Compute(tolerance);
+        if (LeapHeuristicAlphaSelector.SelectFrom(closureMatrix.GetDistinctValues()) is not double alpha)
+            return [];
 
-        double alpha = alphas[0];
-        int n = Tt.Size;
-
-        // Normalised data is used for tiebreaker centroid distances (same space as tolerance matrix).
-        var normalized = toleranceBuilder.Normalize(data);
-
-        // On T̃ the α-cuts partition X into equivalence classes; only c = class count
-        // can satisfy the coverage condition, so other c values need not be tried.
-        int classCount = PrototypePipeline.CountAlphaClasses(Tt, alpha);
-        if (classCount < 2 || classCount > n) return [];
-
-        var dafc = new DAfcAlgorithm(
-            new DAfcOptions(classCount, minClusterPower, maxClusterPower, maxIntersections),
-            new ManualAlphaSelector([alpha]),
-            criterion);
-
-        var allResults = dafc.RunForAlpha(Tt, alpha, ct);
-
-        // Step 8 (Viattchenin): assign geometric tiebreaker scores, then rank by the
-        // deterministic total order (score desc, tiebreaker asc, alpha, c, centers).
-        return [.. allResults
-            .Select(r => r with { TiebreakerScore = ComputeTiebreakerScore(r, normalized) })
-            .Order(ClusterResult.Order)];
+        return ClosureAllotment.Solve(closureMatrix, alpha, criterion, minClusterPower, maxClusterPower,
+                                      normalizedData, maxResults, ct);
     }
 
     /// <summary>
-    /// Computes Σ dist(typical_point_l, centroid_l) in normalised feature space.
-    /// Lower values indicate that typical points are closer to the geometric centres of their clusters.
+    /// The variant with a given number of clusters: the allotments among exactly
+    /// <paramref name="clusterCount"/> clusters over all levels of the closure, best first.
+    /// The number of classes does not decrease with α, so such levels form one interval.
     /// </summary>
-    internal static double ComputeTiebreakerScore(ClusterResult r, RawDataMatrix normalized)
+    public IReadOnlyList<ClusterResult> RunForClusterCount(
+        FuzzyToleranceMatrix tolerance, int clusterCount, RawDataMatrix? normalizedData, CancellationToken ct = default)
     {
-        double total = 0.0;
-        int m = normalized.Cols;
-
-        for (int l = 0; l < r.ClusterCount; l++)
+        var closureMatrix = closure.Compute(tolerance);
+        var found = new List<ClusterResult>();
+        foreach (double alpha in closureMatrix.GetDistinctValues().Order())
         {
-            var members = r.MemberSets[l];
-            if (members.Length == 0) continue;
-
-            // Geometric centroid of cluster l
-            var centroid = new double[m];
-            foreach (int idx in members)
-            {
-                var row = normalized.GetRow(idx);
-                for (int j = 0; j < m; j++)
-                    centroid[j] += row[j];
-            }
-            for (int j = 0; j < m; j++)
-                centroid[j] /= members.Length;
-
-            // Euclidean distance from typical point to centroid
-            var centerRow = normalized.GetRow(r.Centers[l]);
-            double sumSq = 0.0;
-            for (int j = 0; j < m; j++)
-            {
-                double d = centerRow[j] - centroid[j];
-                sumSq += d * d;
-            }
-            total += Math.Sqrt(sumSq);
+            ct.ThrowIfCancellationRequested();
+            int classCount = PrototypePipeline.CountAlphaClasses(closureMatrix, alpha);
+            if (classCount < clusterCount) continue;
+            if (classCount > clusterCount) break;
+            found.AddRange(ClosureAllotment.Solve(closureMatrix, alpha, criterion, minClusterPower, maxClusterPower,
+                                                  normalizedData, maxResults, ct));
         }
-
-        return total;
+        found.Sort(ClusterResult.Order);
+        return found.Count > maxResults ? found.GetRange(0, maxResults) : found;
     }
 
     /// <summary>Exposes the transitive closure matrix for inspection (e.g. UI).</summary>
     public FuzzyToleranceMatrix BuildClosureMatrix(RawDataMatrix data)
-        => PrototypePipeline.BuildWithClosure(data, toleranceBuilder, closure);
+        => closure.Compute(toleranceBuilder.Build(data));
 }

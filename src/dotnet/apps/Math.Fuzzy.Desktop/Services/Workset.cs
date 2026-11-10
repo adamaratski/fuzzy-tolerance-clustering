@@ -17,6 +17,8 @@ public sealed class Workset
     public LabeledDataset?       Labels          { get; set; }
     /// <summary>Names of the feature columns (CSV header), x1…xm when the file has none.</summary>
     public IReadOnlyList<string> FeatureNames    { get; init; } = [];
+    /// <summary>The tolerance matrix as loaded from a matrix file; the algorithms run on it.</summary>
+    public FuzzyToleranceMatrix? InputMatrix     { get; init; }
     public FuzzyToleranceMatrix? ToleranceMatrix { get; set; }
     /// <summary>True when <see cref="ToleranceMatrix"/> is the max-min transitive closure T̃.</summary>
     public bool ClosureApplied  { get; set; }

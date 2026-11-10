@@ -11,7 +11,7 @@ using MathFuzzy.Core.Matrix;
 namespace MathFuzzy.Clustering.Algorithms.Relational;
 
 /// <summary>
-/// D-AFC(c) — Direct Adaptive Fuzzy Clustering.
+/// D-AFC(c) — the direct algorithm for detecting the allotment among c fuzzy clusters.
 ///
 /// Semantics (Viattchenin 2013, sec. 2.2.1): with <see cref="DAfcOptions.AutoIntersections"/>
 /// the search starts from fully separated clusters (w = 0) and relaxes the separation
@@ -30,7 +30,14 @@ namespace MathFuzzy.Clustering.Algorithms.Relational;
 ///       – center disjointness is a single bit test,
 ///       – coverage is a word-wise OR with an incremental PopCount,
 ///       – a branch &amp; bound on the suffix-maximum candidate power prunes subtrees
-///         that can no longer cover all n objects.
+///         that can no longer cover all n objects,
+///       – an exact-cover bound prunes subtrees whose cluster powers cannot add up:
+///         with at most w objects in intersection areas the powers of the c clusters sum
+///         to a value in [n, n + (c−1)·w] (to exactly n for fully separated clusters), and a
+///         subset-sum table over the remaining candidates tells in O(1) whether that is
+///         still possible. The same test rejects whole levels in Phase 0.
+///       – for w = 0 two candidates with a common neighbour are never centers together
+///         (a fully separated allotment is an efficient dominating set of the α-cut graph).
 ///   • Levels are processed in parallel, descending by alpha, in chunks of
 ///     EarlyStopChunkSize; when EarlyStop is on, the scan stops after the first chunk
 ///     that yields no score improvement (once at least one solution exists).
@@ -42,6 +49,7 @@ public sealed class DAfcAlgorithm(
 {
     // One int[] per OS thread; re-used across solutions to avoid per-call heap alloc.
     [ThreadStatic] private static int[]? _intersectionScratch;
+    [ThreadStatic] private static ulong[]? _reachScratch;
 
     /// <summary>A pre-validated alpha level: candidate centers and their cluster powers.</summary>
     private readonly record struct AlphaLevel(double Alpha, int[] Candidates, int[] Powers);
@@ -67,21 +75,22 @@ public sealed class DAfcAlgorithm(
         var alphas = alphaSelector.Select(matrix).OrderByDescending(a => a).ToArray();
 
         if (options.MaxIntersections >= 0)
-            return ScanAllLevels(matrix, sortedRows, alphas, n, c, options.MaxIntersections, ct);
+            return ScanAllLevels(matrix, sortedRows, alphas, n, c, options.MaxIntersections, ct, out _);
 
         // Original D-AFC(c), steps 3–5: w := 0; if no allotment among exactly c
-        // clusters exists at any level, w := w + 1 and repeat.
+        // clusters exists at any level, w := w + 1 and repeat. An exhausted node budget
+        // proves nothing about the current w, so the relaxation stops there.
         for (int w = 0; w <= n; w++)
         {
-            var found = ScanAllLevels(matrix, sortedRows, alphas, n, c, w, ct);
-            if (found.Count > 0) return found;
+            var found = ScanAllLevels(matrix, sortedRows, alphas, n, c, w, ct, out bool budgetExhausted);
+            if (found.Count > 0 || budgetExhausted) return found;
         }
         return [];
     }
 
     private IReadOnlyList<ClusterResult> ScanAllLevels(
         FuzzyToleranceMatrix matrix, double[][] sortedRows, double[] alphas,
-        int n, int c, int maxIntersections, CancellationToken ct)
+        int n, int c, int maxIntersections, CancellationToken ct, out bool budgetExhausted)
     {
         var budget = new SearchBudget(options.MaxCombinations);
 
@@ -154,6 +163,8 @@ public sealed class DAfcAlgorithm(
                 });
         }
 
+        budgetExhausted = budget.Exhausted;
+        options.Diagnostics?.Record(budget.Used, budgetExhausted, alphas.Length, levels.Count);
         return collector.Drain();
     }
 
@@ -170,25 +181,33 @@ public sealed class DAfcAlgorithm(
             powers[i] = CountAboveThreshold(matrix.GetRow(i), alpha);
 
         if (options.MaxIntersections >= 0)
-            return RunLevel(matrix, alpha, powers, n, c, options.MaxIntersections, ct);
+            return RunLevel(matrix, alpha, powers, n, c, options.MaxIntersections, ct, out _);
 
         for (int w = 0; w <= n; w++)
         {
-            var found = RunLevel(matrix, alpha, powers, n, c, w, ct);
-            if (found.Count > 0) return found;
+            var found = RunLevel(matrix, alpha, powers, n, c, w, ct, out bool budgetExhausted);
+            if (found.Count > 0 || budgetExhausted) return found;
         }
         return [];
     }
 
     private IReadOnlyList<ClusterResult> RunLevel(
         FuzzyToleranceMatrix matrix, double alpha, int[] powers,
-        int n, int c, int maxIntersections, CancellationToken ct)
+        int n, int c, int maxIntersections, CancellationToken ct, out bool budgetExhausted)
     {
-        if (!TryCreateLevel(alpha, powers, n, c, maxIntersections, out var level)) return [];
+        budgetExhausted = false;
+        if (!TryCreateLevel(alpha, powers, n, c, maxIntersections, out var level))
+        {
+            options.Diagnostics?.Record(0, false, 1, 0);
+            return [];
+        }
 
         var collector = new TopNCollector(options.MaxResults);
-        EvaluateLevel(matrix, level, n, c, collector, new SearchBudget(options.MaxCombinations), ct,
+        var budget = new SearchBudget(options.MaxCombinations);
+        EvaluateLevel(matrix, level, n, c, collector, budget, ct,
             maxIntersections, parallelSearch: true); // single level — fan the DFS out across cores
+        budgetExhausted = budget.Exhausted;
+        options.Diagnostics?.Record(budget.Used, budgetExhausted, 1, 1);
         return collector.Drain();
     }
 
@@ -229,8 +248,76 @@ public sealed class DAfcAlgorithm(
             && (long)minFound * c - n > maxIntersections)
             return false;
 
+        // Exact cover: the powers of some c candidates must add up to a value in
+        // [n, n + (c−1)·w]; for fully separated clusters to exactly n.
+        if (options.ExactCoverPruning && maxIntersections != int.MaxValue
+            && !PowerSumFeasible(CollectionsMarshal.AsSpan(powers), n, c, maxIntersections))
+            return false;
+
         level = new AlphaLevel(alpha, [.. candidates], [.. powers]);
         return true;
+    }
+
+    /// <summary>Largest admissible sum of the cluster powers: n + (c−1)·w, capped at c·n.</summary>
+    private static int MaxPowerSum(int n, int c, int maxIntersections)
+        => (int)Math.Min((long)n + (long)(c - 1) * maxIntersections, (long)c * n);
+
+    /// <summary>
+    /// True when some c of the given powers sum to a value in [n, n + (c−1)·w]: a subset-sum
+    /// table over (number of clusters, sum) kept as bitsets, O(k·c·n/64) word operations.
+    /// </summary>
+    private static bool PowerSumFeasible(ReadOnlySpan<int> powers, int n, int c, int maxIntersections)
+    {
+        int maxSum = MaxPowerSum(n, c, maxIntersections);
+        int sumWords = (maxSum >> 6) + 1;
+
+        ref var scratch = ref _reachScratch;
+        int needed = (c + 1) * sumWords;
+        if (scratch is null || scratch.Length < needed)
+            scratch = new ulong[Math.Max(needed, 64)];
+        var reach = scratch.AsSpan(0, needed);
+        reach.Clear();
+        reach[0] = 1UL; // zero clusters reach the sum 0
+
+        foreach (int power in powers)
+        {
+            for (int clusters = c; clusters >= 1; clusters--)
+                ShiftOr(reach.Slice(clusters * sumWords, sumWords),
+                        reach.Slice((clusters - 1) * sumWords, sumWords), power);
+        }
+        return AnyBitInRange(reach.Slice(c * sumWords, sumWords), n, maxSum);
+    }
+
+    /// <summary>destination |= source &lt;&lt; shift, over multi-word bitsets of equal length.</summary>
+    private static void ShiftOr(Span<ulong> destination, ReadOnlySpan<ulong> source, int shift)
+    {
+        int wordShift = shift >> 6;
+        int bitShift = shift & 63;
+        for (int word = destination.Length - 1; word >= wordShift; word--)
+        {
+            ulong moved = source[word - wordShift] << bitShift;
+            if (bitShift != 0 && word - wordShift - 1 >= 0)
+                moved |= source[word - wordShift - 1] >> (64 - bitShift);
+            destination[word] |= moved;
+        }
+    }
+
+    /// <summary>True when the bitset has a set bit with index in [low, high].</summary>
+    private static bool AnyBitInRange(ReadOnlySpan<ulong> bits, int low, int high)
+    {
+        if (low < 0) low = 0;
+        int limit = (bits.Length << 6) - 1;
+        if (high > limit) high = limit;
+        if (low > high) return false;
+
+        int firstWord = low >> 6, lastWord = high >> 6;
+        ulong firstMask = ulong.MaxValue << (low & 63);
+        ulong lastMask = ulong.MaxValue >> (63 - (high & 63));
+        if (firstWord == lastWord) return (bits[firstWord] & firstMask & lastMask) != 0;
+        if ((bits[firstWord] & firstMask) != 0) return true;
+        for (int word = firstWord + 1; word < lastWord; word++)
+            if (bits[word] != 0) return true;
+        return (bits[lastWord] & lastMask) != 0;
     }
 
     /// <summary>
@@ -266,17 +353,57 @@ public sealed class DAfcAlgorithm(
         // AND per chosen center — no per-node pairwise re-checks.
         int kWords = (k + 63) >> 6;
         var incompatible = new ulong[k * kWords];
+        bool fullySeparated = maxIntersections == 0 && options.ExactCoverPruning;
         for (int i = 0; i < k; i++)
         {
             var cutRow = cuts.AsSpan(i * words, words);
             for (int j = 0; j < k; j++)
             {
                 if (j == i) continue;
-                int obj = cands[j];
-                if ((cutRow[obj >> 6] >> (obj & 63) & 1UL) != 0)
+                bool clash;
+                if (fullySeparated)
+                {
+                    // w = 0: the two α-cuts must be disjoint — no common neighbour.
+                    var otherRow = cuts.AsSpan(j * words, words);
+                    clash = false;
+                    for (int ww = 0; ww < words; ww++)
+                        if ((cutRow[ww] & otherRow[ww]) != 0) { clash = true; break; }
+                }
+                else
+                {
+                    int obj = cands[j];
+                    clash = (cutRow[obj >> 6] >> (obj & 63) & 1UL) != 0;
+                }
+                if (clash)
                     incompatible[i * kWords + (j >> 6)] |= 1UL << (j & 63);
             }
             incompatible[i * kWords + (i >> 6)] |= 1UL << (i & 63); // never re-pick self
+        }
+
+        // Suffix subset-sum table for the exact-cover bound: reach[(j, r)] = set of sums of
+        // the powers of r candidates taken from j..k−1. Skipped for unbounded w and when the
+        // table would be unreasonably large.
+        ulong[]? reach = null;
+        int sumWords = 0, maxSum = 0;
+        if (options.ExactCoverPruning && maxIntersections != int.MaxValue)
+        {
+            maxSum = MaxPowerSum(n, c, maxIntersections);
+            sumWords = (maxSum >> 6) + 1;
+            long tableWords = (long)(k + 1) * c * sumWords;
+            if (tableWords <= 8_000_000)
+            {
+                reach = new ulong[tableWords];
+                reach[(long)k * c * sumWords] = 1UL; // (k, 0): the empty selection sums to 0
+                for (int j = k - 1; j >= 0; j--)
+                {
+                    var current = reach.AsSpan(j * c * sumWords, c * sumWords);
+                    var next = reach.AsSpan((j + 1) * c * sumWords, c * sumWords);
+                    next.CopyTo(current);
+                    for (int picks = c - 1; picks >= 1; picks--)
+                        ShiftOr(current.Slice(picks * sumWords, sumWords),
+                                next.Slice((picks - 1) * sumWords, sumWords), powers[j]);
+                }
+            }
         }
 
         // Per-level lazy caches: a candidate's member set (and, for decomposable
@@ -292,6 +419,9 @@ public sealed class DAfcAlgorithm(
             MemberSets     = new int[k][],
             Decomposable   = criterion as IDecomposableCriterion,
             MaxIntersections = maxIntersections,
+            Reach          = reach,
+            SumWords       = sumWords,
+            MaxSum         = maxSum,
         };
         if (context.Decomposable is not null)
         {
@@ -307,9 +437,11 @@ public sealed class DAfcAlgorithm(
             for (int j = 0; j < k; j++)
                 availStack[j >> 6] |= 1UL << (j & 63);   // depth 0: everyone available
 
+            var cursor = new BudgetCursor(budget);
             Search(matrix, level, context, chosen, unionStack, availStack,
-                depth: 0, firstCandidate: 0, coveredCount: 0, n, c, words, collector,
-                new BudgetCursor(budget), ct);
+                depth: 0, firstCandidate: 0, coveredCount: 0, powerSum: 0, n, c, words, collector,
+                cursor, ct);
+            cursor.Flush();
             return;
         }
 
@@ -325,6 +457,7 @@ public sealed class DAfcAlgorithm(
         for (int j = 0; j <= k - c; j++)
         {
             if ((long)c * suffixMaxPower[j] < n) break;
+            if (!PowerSumStillFeasible(context, j, picksAfter: c - 1, powerSum: powers[j], n, c)) continue;
             firstBranches.Add(j);
         }
         if (!budget.TryCharge(firstBranches.Count)) return;
@@ -348,10 +481,28 @@ public sealed class DAfcAlgorithm(
                 for (int ww = 0; ww < kWords; ww++)
                     availStack[kWords + ww] = allAvailable[ww] & ~incompatible[j * kWords + ww];
 
+                var cursor = new BudgetCursor(budget);
                 Search(matrix, level, context, chosen, unionStack, availStack,
-                    depth: 1, firstCandidate: j + 1, covered, n, c, words, collector,
-                    new BudgetCursor(budget), ct);
+                    depth: 1, firstCandidate: j + 1, covered, powerSum: powers[j], n, c, words, collector,
+                    cursor, ct);
+                cursor.Flush();
             });
+    }
+
+    /// <summary>
+    /// Exact-cover bound: after choosing candidate <paramref name="candidate"/> (its power is
+    /// already included in <paramref name="powerSum"/>), can <paramref name="picksAfter"/> later
+    /// candidates bring the sum of powers into [n, n + (c−1)·w]?
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool PowerSumStillFeasible(LevelContext context, int candidate, int picksAfter, int powerSum, int n, int c)
+    {
+        var reach = context.Reach;
+        if (reach is null) return true;
+        if (powerSum > context.MaxSum) return false;
+        int sumWords = context.SumWords;
+        var row = reach.AsSpan(((candidate + 1) * c + picksAfter) * sumWords, sumWords);
+        return AnyBitInRange(row, n - powerSum, context.MaxSum - powerSum);
     }
 
     /// <summary>
@@ -369,13 +520,16 @@ public sealed class DAfcAlgorithm(
         public required int[][] MemberSets;            // lazy, per candidate
         public required IDecomposableCriterion? Decomposable;
         public required int MaxIntersections;          // w for this scan
+        public required ulong[]? Reach;                // suffix subset-sum table, (k+1) × c × SumWords
+        public required int SumWords;
+        public required int MaxSum;                    // n + (c−1)·w
         public double[]? Terms;                        // lazy per-candidate contribution (NaN = unset)
     }
 
     private void Search(
         FuzzyToleranceMatrix matrix, AlphaLevel level, LevelContext context,
         int[] chosen, ulong[] unionStack, ulong[] availStack,
-        int depth, int firstCandidate, int coveredCount,
+        int depth, int firstCandidate, int coveredCount, int powerSum,
         int n, int c, int words, TopNCollector collector, BudgetCursor budget, CancellationToken ct)
     {
         if (depth == c)
@@ -418,6 +572,10 @@ public sealed class DAfcAlgorithm(
                 // coverage. suffixMaxPower is non-increasing, so all later j fail too.
                 if (coveredCount + (long)remaining * context.SuffixMaxPower[j] < n) return;
 
+                // Exact-cover bound on the sum of the cluster powers.
+                int newPowerSum = powerSum + level.Powers[j];
+                if (!PowerSumStillFeasible(context, j, remaining - 1, newPowerSum, n, c)) continue;
+
                 // Coverage union with incremental popcount.
                 var prefix = unionStack.AsSpan(depth * words, words);
                 var union  = unionStack.AsSpan((depth + 1) * words, words);
@@ -437,7 +595,7 @@ public sealed class DAfcAlgorithm(
 
                 chosen[depth] = j;
                 Search(matrix, level, context, chosen, unionStack, availStack,
-                    depth + 1, j + 1, newCovered, n, c, words, collector, budget, ct);
+                    depth + 1, j + 1, newCovered, newPowerSum, n, c, words, collector, budget, ct);
             }
         }
     }
@@ -626,6 +784,11 @@ public sealed class DAfcAlgorithm(
 
         public bool Exhausted => Volatile.Read(ref _used) >= limit;
 
+        /// <summary>Search nodes charged so far.</summary>
+        public long Used => Volatile.Read(ref _used);
+
+        public void Add(int nodes) => Interlocked.Add(ref _used, nodes);
+
         /// <summary>Returns false when the budget is spent (charge still recorded).</summary>
         public bool TryCharge(int nodes) => Interlocked.Add(ref _used, nodes) <= limit;
     }
@@ -649,6 +812,13 @@ public sealed class DAfcAlgorithm(
             if (shared.TryCharge(BatchSize)) return true;
             _exhausted = true;
             return false;
+        }
+
+        /// <summary>Adds the nodes counted since the last batch to the shared counter.</summary>
+        public void Flush()
+        {
+            if (_local > 0) shared.Add(_local);
+            _local = 0;
         }
     }
 

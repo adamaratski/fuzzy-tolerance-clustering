@@ -43,14 +43,21 @@ public sealed class FuzzyToleranceMatrix
     /// <summary>All distinct values in (0,1) excluding diagonal, descending.</summary>
     public IReadOnlyList<double> GetDistinctValues()
     {
-        var set = new SortedSet<double>(Comparer<double>.Create((a, b) => b.CompareTo(a)));
+        var values = new double[Size * (Size - 1) / 2];
+        int count = 0;
         for (int i = 0; i < Size; i++)
         for (int j = i + 1; j < Size; j++)
         {
             var v = _data[i * Size + j];
-            if (v > 0.0 && v < 1.0) set.Add(v);
+            if (v > 0.0 && v < 1.0) values[count++] = v;
         }
-        return set.ToList();
+        Array.Sort(values, 0, count);
+
+        var distinct = new List<double>();
+        for (int position = count - 1; position >= 0; position--)
+            if (distinct.Count == 0 || values[position] != distinct[^1])
+                distinct.Add(values[position]);
+        return distinct;
     }
 
     /// <summary>
@@ -91,50 +98,92 @@ public sealed class FuzzyToleranceMatrix
     }
 
     /// <summary>
-    /// Loads a square n×n tolerance matrix from a CSV file.
-    /// Accepts files with or without a header row.
-    /// Values must be in [0,1]; diagonal is forced to 1 after loading.
+    /// Levels that differ by less than this are one level. Distances accumulated in a different
+    /// order differ in the last bits, which would otherwise split one α-level of the data in two.
     /// </summary>
-    public static FuzzyToleranceMatrix FromCsv(string path, char separator = ',')
+    public const double DefaultLevelTolerance = 1e-12;
+
+    /// <summary>
+    /// Merges off-diagonal values that differ by no more than <paramref name="tolerance"/> into a
+    /// single level, in place: the sorted values are swept, a gap larger than the tolerance starts
+    /// a new level, and every value of a level is replaced by the smallest one. Returns the number
+    /// of levels removed. A tolerance of 0 leaves the matrix untouched.
+    /// </summary>
+    public int SnapLevels(double tolerance = DefaultLevelTolerance)
     {
-        var lines = File.ReadAllLines(path)
-            .Where(line => !string.IsNullOrWhiteSpace(line))
-            .ToArray();
+        if (tolerance <= 0.0 || Size < 2) return 0;
 
-        // Detect and skip header: any line whose first token cannot be parsed as double.
-        int dataStart = 0;
-        var firstTokens = lines[0].Split(separator);
-        if (!double.TryParse(firstTokens[0].Trim(), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out _))
-            dataStart = 1;
+        var values = new double[Size * (Size - 1) / 2];
+        int count = 0;
+        for (int row = 0; row < Size; row++)
+            for (int column = row + 1; column < Size; column++)
+                values[count++] = _data[row * Size + column];
+        Array.Sort(values);
 
-        var dataLines = lines[dataStart..];
-        int size = dataLines.Length;
-        if (size == 0) throw new FormatException("CSV contains no data rows.");
+        // representative[value] for the values that change
+        Dictionary<double, double>? representative = null;
+        double levelStart = values[0];
+        int removed = 0;
+        for (int position = 1; position < values.Length; position++)
+        {
+            double value = values[position];
+            if (value == values[position - 1]) continue;
+            if (value - values[position - 1] > tolerance) { levelStart = value; continue; }
+            (representative ??= [])[value] = levelStart;
+            removed++;
+        }
+        if (representative is null) return 0;
+
+        for (int index = 0; index < _data.Length; index++)
+            if (representative.TryGetValue(_data[index], out double snapped))
+                _data[index] = snapped;
+        return removed;
+    }
+
+    /// <summary>
+    /// Loads a square n × n fuzzy tolerance matrix from a delimited text file. A header row and
+    /// a first column of object names are skipped. The values must lie in [0, 1] and the matrix
+    /// must be symmetric; the diagonal is set to 1.
+    /// </summary>
+    public static FuzzyToleranceMatrix FromCsv(string path)
+    {
+        var table = MathFuzzy.Core.IO.CsvTable.Load(path);
+        if (table.Rows.Length == 0)
+            throw new FormatException($"{table.SourceName}: the file contains no data rows.");
+
+        int firstColumn = table.IsNumericColumn(0) ? 0 : 1;   // a first column of object names
+        int size = table.Rows.Length;
+        if (table.ColumnCount - firstColumn != size)
+            throw new FormatException(
+                $"{table.SourceName}: a square matrix is expected, found {size} rows and {table.ColumnCount - firstColumn} columns.");
 
         var matrix = new FuzzyToleranceMatrix(size);
-        for (int rowIndex = 0; rowIndex < size; rowIndex++)
+        for (int row = 0; row < size; row++)
         {
-            var tokens = dataLines[rowIndex].Split(separator);
-            if (tokens.Length < size)
-                throw new FormatException(
-                    $"Row {rowIndex + 1}: expected {size} values, got {tokens.Length}.");
-
-            for (int colIndex = 0; colIndex < size; colIndex++)
+            for (int column = 0; column < size; column++)
             {
-                if (!double.TryParse(tokens[colIndex].Trim(), System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out double value))
+                double value = table.Number(row, column + firstColumn);
+                if (value < 0.0 || value > 1.0)
                     throw new FormatException(
-                        $"Row {rowIndex + 1}, column {colIndex + 1}: '{tokens[colIndex].Trim()}' is not a valid number.");
-
-                matrix[rowIndex, colIndex] = Math.Clamp(value, 0.0, 1.0);
+                        $"{table.SourceName}: value {value.ToString(System.Globalization.CultureInfo.InvariantCulture)} " +
+                        $"at row {row + 1}, column {column + 1} lies outside [0, 1]; a fuzzy tolerance matrix is expected.");
+                matrix._data[row * size + column] = value;
             }
         }
 
-        // Enforce reflexivity: diagonal must be 1.
-        for (int i = 0; i < size; i++)
-            matrix[i, i] = 1.0;
+        for (int row = 0; row < size; row++)
+        {
+            for (int column = row + 1; column < size; column++)
+            {
+                if (System.Math.Abs(matrix._data[row * size + column] - matrix._data[column * size + row]) > 1e-9)
+                    throw new FormatException(
+                        $"{table.SourceName}: the matrix is not symmetric at ({row + 1}, {column + 1}).");
+                matrix._data[column * size + row] = matrix._data[row * size + column];
+            }
+            matrix._data[row * size + row] = 1.0;
+        }
 
+        matrix.SnapLevels();
         return matrix;
     }
 

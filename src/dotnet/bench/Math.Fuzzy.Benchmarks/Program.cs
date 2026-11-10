@@ -6,13 +6,14 @@ using System.Runtime.Intrinsics.X86;
 using MathFuzzy.Benchmarks;
 using MathFuzzy.Clustering.Algorithms.Hierarchical;
 using MathFuzzy.Clustering.Algorithms.Relational;
+using MathFuzzy.Clustering.Results;
 using MathFuzzy.Core.AlphaSelection;
 using MathFuzzy.Core.Criteria;
 using MathFuzzy.Core.Distance;
 using MathFuzzy.Core.Matrix;
 using MathFuzzy.Core.Normalization;
 
-// mfuzzy-bench <closure|search|hafc|stages|all> --data <datasets dir> --out <results.jsonl> [--single-core] [--skip-slow]
+// mfuzzy-bench <closure|search|bound|hafc|stages|all> --data <datasets dir> --out <results.jsonl> [--single-core] [--skip-slow]
 //
 // Every experiment times variants that differ in one technique and checks that they
 // produce the same result. --single-core pins the process to one core, so the
@@ -39,6 +40,7 @@ var irisMatrix = new ToleranceMatrixBuilder(EuclideanDistance.Instance, MinMaxNo
 
 if (experiment is "closure" or "all") RunClosure();
 if (experiment is "search" or "all") RunSearch();
+if (experiment is "bound" or "all") RunExactCoverBound();
 if (experiment is "earlystop") RunEarlyStopOnly();
 if (experiment is "hafc" or "all") RunHierarchical();
 if (experiment is "stages" or "all") RunStages();
@@ -86,13 +88,31 @@ void RunSearch()
     const int clusterCount = 3;
     var levels = irisMatrix.GetDistinctValues();
 
-    // library: level pre-filter + bit-set engine + branch and bound (+ parallel levels)
+    // library: level pre-filter + bit-set engine + branch and bound + exact-cover bound (+ parallel levels)
+    var libraryStatistics = new SearchDiagnostics();
     var library = new DAfcAlgorithm(new DAfcOptions(clusterCount, MaxIntersections: 0),
                                     AllDistinctAlphaSelector.Instance, F1Criterion.Instance);
-    var libraryBest = library.Run(irisMatrix)[0];
+    var libraryBest = new DAfcAlgorithm(new DAfcOptions(clusterCount, MaxIntersections: 0, Diagnostics: libraryStatistics),
+                                        AllDistinctAlphaSelector.Instance, F1Criterion.Instance).Run(irisMatrix)[0];
     var (median, minimum, maximum) = WallClock.Measure(() => library.Run(irisMatrix), 5);
-    log.Add(new Measurement("search", "Bit-set engine + pre-filter (library)", "iris", irisMatrix.Size, cores, 5,
-                            median, minimum, maximum, Note: $"{levels.Count} levels"));
+    log.Add(new Measurement("search", "Bit-set engine + pre-filter + exact-cover bound (library)", "iris", irisMatrix.Size, cores, 5,
+                            median, minimum, maximum,
+                            Note: $"{libraryStatistics.LevelsSearched} of {levels.Count} levels searched, {libraryStatistics.NodesVisited:N0} nodes"));
+
+    // the same engine without the exact-cover bound (the library of version 1.0.0)
+    var plainStatistics = new SearchDiagnostics();
+    var plain = new DAfcAlgorithm(new DAfcOptions(clusterCount, MaxIntersections: 0, ExactCoverPruning: false),
+                                  AllDistinctAlphaSelector.Instance, F1Criterion.Instance);
+    var plainBest = new DAfcAlgorithm(new DAfcOptions(clusterCount, MaxIntersections: 0, ExactCoverPruning: false,
+                                                      Diagnostics: plainStatistics),
+                                      AllDistinctAlphaSelector.Instance, F1Criterion.Instance).Run(irisMatrix)[0];
+    if (plainBest.Alpha != libraryBest.Alpha || plainBest.Score != libraryBest.Score
+        || !plainBest.Centers.SequenceEqual(libraryBest.Centers))
+        throw new InvalidOperationException("The exact-cover bound changed the best allotment on Iris.");
+    (median, minimum, maximum) = WallClock.Measure(() => plain.Run(irisMatrix), 5);
+    log.Add(new Measurement("search", "Bit-set engine + pre-filter", "iris", irisMatrix.Size, cores, 5,
+                            median, minimum, maximum,
+                            Note: $"{plainStatistics.LevelsSearched} of {levels.Count} levels searched, {plainStatistics.NodesVisited:N0} nodes"));
     if (singleCore) return;
 
     // early stopping: levels scanned in descending order, stop after a block of
@@ -130,6 +150,35 @@ void RunSearch()
                             Note: $"{perLevel:F1} ms per level on {sampleSize} evenly spaced levels × {levels.Count} levels"));
 }
 
+// The exact-cover bound on larger data: D-AFC(3) with the automatic relaxation of w.
+void RunExactCoverBound()
+{
+    if (singleCore) return;
+    const int clusterCount = 3;
+    foreach (string name in skipSlow ? new[] { "seeds" } : new[] { "seeds", "wine", "penguins" })
+    {
+        var matrix = BuildMatrix(RawDataMatrix.FromCsv(Path.Combine(datasetsFolder, name + "_labeled.csv")));
+        ClusterResult? reference = null;
+        foreach (bool bound in new[] { true, false })
+        {
+            var statistics = new SearchDiagnostics();
+            var algorithm = new DAfcAlgorithm(
+                // no node budget: both variants must finish every pass, or the comparison is not like for like
+                new DAfcOptions(clusterCount, MaxCombinations: long.MaxValue, ExactCoverPruning: bound, Diagnostics: statistics),
+                AllDistinctAlphaSelector.Instance, F1Criterion.Instance);
+            ClusterResult best = null!;
+            double elapsed = WallClock.MeasureOnce(() => best = algorithm.Run(matrix)[0]);
+            if (reference is null) reference = best;
+            else if (best.Alpha != reference.Alpha || best.Score != reference.Score || !best.Centers.SequenceEqual(reference.Centers))
+                throw new InvalidOperationException($"The exact-cover bound changed the best allotment on {name}.");
+            log.Add(new Measurement("bound", bound ? "With the exact-cover bound (library)" : "Without the exact-cover bound",
+                                    name, matrix.Size, cores, 1, elapsed, elapsed, elapsed,
+                                    Note: $"w = {best.IntersectionCount}, {statistics.NodesVisited:N0} nodes" +
+                                          (statistics.BudgetExhausted ? ", node budget exhausted" : "")));
+        }
+    }
+}
+
 void RunEarlyStopOnly()
 {
     const int clusterCount = 3;
@@ -164,7 +213,7 @@ void RunHierarchical()
         {
             int classCount = ClassCount(closure, alpha);
             if (classCount < 2) continue;
-            new DAfcAlgorithm(new DAfcOptions(classCount), new ManualAlphaSelector([alpha]), F1Criterion.Instance)
+            new DAfcAlgorithm(new DAfcOptions(classCount, ExactCoverPruning: false), new ManualAlphaSelector([alpha]), F1Criterion.Instance)
                 .RunForAlpha(closure, alpha);
         }
     });

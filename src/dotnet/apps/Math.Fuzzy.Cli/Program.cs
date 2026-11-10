@@ -15,5 +15,7 @@ root.Subcommands.Add(ClusterCommand.Build());
 root.Subcommands.Add(MatrixCommand.Build());
 root.Subcommands.Add(ReduceCommand.Build());
 root.Subcommands.Add(InferCommand.Build());
+root.Subcommands.Add(SizeCommand.BuildSize());
+root.Subcommands.Add(SizeCommand.BuildBounds());
 
 return await root.Parse(args).InvokeAsync();

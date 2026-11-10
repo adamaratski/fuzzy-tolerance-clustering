@@ -2,19 +2,24 @@
 command-line tool and writes results/reproduction/<run>.json plus summary.md.
 
 Usage (from the repository root, after `dotnet build src/dotnet/Math.Fuzzy.slnx -c Release`):
-    python results/reproduce.py [--only <substring>] [--rerun]
+    python results/reproduce.py [--only <substring>] [--rerun] [--check]
 Existing JSON outputs are reused unless --rerun is given. With --only the selected rows are
-printed and summary.md is left as it is. Python 3.8 or later.
+printed and summary.md is left as it is. With --check the selected runs are recomputed into a
+temporary folder and compared with the rows of the committed summary.md (times excluded);
+the exit code is 1 when a row differs. Python 3.8 or later.
 
 Each JSON keeps the ten top-ranked allotments of its run (every level for H-AFC-TC) in
 compact form; `resultCount` records how many the tool returned.
 """
-import json, subprocess, sys, time
+import json, subprocess, sys, tempfile, time
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(errors="replace")   # consoles without Unicode
 root = Path(__file__).resolve().parents[1]
 cli = root / "src/dotnet/apps/Math.Fuzzy.Cli/bin/Release/net10.0/mfuzzy.exe"
-out_dir = root / "results/reproduction"
+archive_dir = root / "results/reproduction"
+check = "--check" in sys.argv
+out_dir = Path(tempfile.mkdtemp(prefix="mfuzzy-check-")) if check else archive_dir
 out_dir.mkdir(exist_ok=True)
 only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
 KEPT_RESULTS = 10
@@ -56,6 +61,26 @@ runs = [
     ("yangwu_dpafc-tc_sqeuclid_max",  "yang_wu.csv",      "dpafc-tc", MONO),
     ("sneath_dafc-tc_sqeuclid_max",   "sneath_sokal.csv", "dafc-tc",  MONO),
     ("sneath_dpafc_sqeuclid_max_1e-5","sneath_sokal.csv", "dpafc",    ["--accuracy", "0.00001"] + MONO),
+    # tbl-dafc-u: the maximal number of objects in a cluster is given (Tamura's portraits are a relation)
+    ("tamura_dafc-u3",                "tamura_16.csv",    "dafc-u",   ["--matrix", "--max-size", "3"]),
+    ("tamura_dafc-u4",                "tamura_16.csv",    "dafc-u",   ["--matrix", "--max-size", "4"]),
+    ("tamura_dafc-u5",                "tamura_16.csv",    "dafc-u",   ["--matrix", "--max-size", "5"]),
+    ("tamura_dafc-u6",                "tamura_16.csv",    "dafc-u",   ["--matrix", "--max-size", "6"]),
+    ("tamura_dpafc",                  "tamura_16.csv",    "dpafc",    ["--matrix"]),
+    ("sneath_dafc-u4_sqeuclid_max",   "sneath_sokal.csv", "dafc-u",   ["--max-size", "4"] + MONO),
+    ("sneath_dafc-u5_sqeuclid_max",   "sneath_sokal.csv", "dafc-u",   ["--max-size", "5"] + MONO),
+    ("iris_dafc-u51_sqeuclid_max",    "iris_labeled.csv", "dafc-u",   ["--max-size", "51"] + MONO),
+    ("iris_dafc-u52_sqeuclid_max",    "iris_labeled.csv", "dafc-u",   ["--max-size", "52"] + MONO),
+    # tbl-taga-sneath-ties: transitive approximations, equal similarities recognised as equal
+    ("sneath_dafc-taga-max_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "max"] + MONO),
+    ("sneath_dafc-taga-min_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "min"] + MONO),
+    ("sneath_dafc-taga-mean_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "mean"] + MONO),
+    ("sneath_dafc-taga-median_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "median"] + MONO),
+    ("sneath_dafc-taga-umedian_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "umedian"] + MONO),
+    ("sneath_dafc-taga-dmedian_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "dmedian"] + MONO),
+    ("sneath_dafc-taga-auto_sqeuclid_max", "sneath_sokal.csv", "dafc-taga", ["--taga", "auto"] + MONO),
+    ("iris_dafc-taga-auto_euclidean_max", "iris_labeled.csv", "dafc-taga", ["--taga", "auto", "--normalize", "max", "--distance", "euclidean"]),
+    ("iris_hafc-taga-mean_euclidean", "iris_labeled.csv", "hafc-taga", ["--taga", "mean", "--distance", "euclidean"] + MINMAX),
 ]
 
 lines = ["# Reproduction runs", "",
@@ -63,6 +88,7 @@ lines = ["# Reproduction runs", "",
          "reported only for labelled data. Centres are 1-based object indices. `time` is the wall-clock time of the process.", "",
          "| run | n | c | α* | F | centres (1-based) | sizes | overlap | purity | ARI | NMI | misclassified | time s |",
          "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+header_lines = len(lines)
 for name, dataset, algorithm, options in runs:
     if only and only not in name: continue
     target = out_dir / f"{name}.json"
@@ -78,15 +104,17 @@ for name, dataset, algorithm, options in runs:
             lines.append(f"| {name} | — | — | — | — | — | — | — | — | — | — | FAILED | {elapsed:.1f} |")
             print(name, "FAILED", completed.stderr.strip()[:200]); continue
     data = json.loads(target.read_text(encoding="utf-8-sig"))
-    # the tool writes {"results", "validation"} for labelled data and a bare list otherwise
+    # the tool writes {"results", "search", "validation"}; version 1.0.0 wrote a bare list for unlabelled data
     if not isinstance(data, dict): data = {"results": data}
+    if data.get("search", {}).get("budgetExhausted"):
+        print(name, "WARNING: the search stopped at its node budget")
     results = data["results"]
     if "resultCount" not in data:
         # archive form: the ten best allotments (the whole hierarchy for H-AFC-TC), compact JSON
         data["resultCount"] = len(results)
-        if algorithm != "hafc-tc": data["results"] = results = results[:KEPT_RESULTS]
+        if not algorithm.startswith("hafc-"): data["results"] = results = results[:KEPT_RESULTS]
         target.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
-    if algorithm == "hafc-tc":
+    if algorithm.startswith("hafc-"):
         # the hierarchy: report the level with three clusters as the book does
         results = [r for r in results if r["clusterCount"] == 3] or results
     best = results[0]
@@ -97,7 +125,7 @@ for name, dataset, algorithm, options in runs:
     for cluster in best["clusters"]:
         for o in cluster: covered[o] = covered.get(o, 0) + 1
     overlap = sum(1 for count in covered.values() if count > 1)
-    validation = data.get("validation")
+    validation = best.get("validation") or data.get("validation")   # per level for a hierarchy
     purity = f"{validation['purity']:.3f}" if validation else "—"
     ari = f"{validation['adjustedRandIndex']:.3f}" if validation else "—"
     nmi = f"{validation['nmi']:.3f}" if validation else "—"
@@ -107,5 +135,17 @@ for name, dataset, algorithm, options in runs:
                  f"{[c + 1 for c in best['centers']]} | {sizes} | {overlap} | {purity} | {ari} | {nmi} | {misclassified} | {elapsed_text} |")
     print(lines[-1])
 
+def without_time(row):
+    return "|".join(row.split("|")[:-2])
+
+
+if check:
+    committed = {row.split("|")[1].strip(): without_time(row)
+                 for row in (archive_dir / "summary.md").read_text(encoding="utf-8").splitlines() if row.startswith("| ")}
+    differing = [row.split("|")[1].strip() for row in lines[header_lines:]
+                 if committed.get(row.split("|")[1].strip()) != without_time(row)]
+    print(f"checked {len(lines) - header_lines} run(s): " + ("all rows match summary.md" if not differing
+          else "DIFFERENT from summary.md: " + ", ".join(differing)))
+    sys.exit(1 if differing else 0)
 if only is None:
     (out_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

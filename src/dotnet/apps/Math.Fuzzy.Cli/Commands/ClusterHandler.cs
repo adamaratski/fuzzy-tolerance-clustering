@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using MathFuzzy.Clustering;
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Clustering.Validation;
+using MathFuzzy.Core.IO;
 using MathFuzzy.Core.Matrix;
 using MathFuzzy.Inference.Generation;
 using MathFuzzy.Inference.Serialization;
@@ -11,86 +13,111 @@ namespace MathFuzzy.Cli.Commands;
 
 internal static class ClusterHandler
 {
-    internal static async Task Run(
-        string algorithm, FileInfo input, int? clusters, double? alpha,
-        string distance, string normalize, string taga, double minkowskiP,
-        string criterion, FileInfo? output, string format, double? accuracy = null,
-        int intersections = 0, FileInfo? rules = null)
+    /// <summary>Exit codes: 0 = allotment found, 2 = invalid input or options, 3 = no allotment exists.</summary>
+    internal static Task<int> Run(ClusterRequest request, CancellationToken ct)
     {
-        if (format.ToLowerInvariant() is not ("table" or "json" or "csv"))
-        {
-            await Console.Error.WriteLineAsync($"Unknown format: '{format}'. Valid names: table, json, csv");
-            Environment.Exit(2);
-            return;
-        }
+        int exitCode = 0;
+        return CsvFiles.Guard(() => Execute(request, ct, code => exitCode = code), () => exitCode);
+    }
 
-        // Try to load as labeled dataset first; fall back to plain data
-        var labeled = LabeledDataset.TryFromCsv(input.FullName);
-        var data    = labeled?.Data ?? RawDataMatrix.FromCsv(input.FullName);
+    private static async Task Execute(ClusterRequest request, CancellationToken ct, Action<int> setExitCode)
+    {
+        string format = request.Format.ToLowerInvariant();
+        if (format is not ("table" or "json" or "csv"))
+            throw new ArgumentException($"Unknown format: '{request.Format}'. Valid names: table, json, csv");
+        if (request.InputIsMatrix && request.MatrixBuildOptionsGiven.Count > 0)
+            throw new ArgumentException(
+                $"{string.Join(", ", request.MatrixBuildOptionsGiven)}: such options say how a tolerance matrix is built from " +
+                "attribute data and cannot be combined with --matrix.");
+        if (request.InputIsMatrix && request.Rules is not null)
+            throw new ArgumentException("--rules needs attribute data: fuzzy rules are built on the attributes, not on a relation.");
+        if (request.Top < 1)
+            throw new ArgumentException("--top must be at least 1.");
 
-        if (labeled is not null)
-            await Console.Error.WriteLineAsync(
-                $"Labels detected: {labeled.ClassCount} classes [{string.Join(", ", labeled.ClassNames)}]");
-
+        var diagnostics = new SearchDiagnostics();
         var options = new AlgorithmOptions(
-            Distance:      distance,
-            Normalization: normalize,
-            ClusterCount:  clusters,
-            TagaOperator:  taga,
-            UserAlpha:     alpha,
-            MinkowskiP:    minkowskiP,
-            Criterion:     criterion,
-            Accuracy:      accuracy,
-            MaxIntersections: intersections);
+            Distance:         request.Distance,
+            Normalization:    request.Normalize,
+            ClusterCount:     request.Clusters,
+            TagaOperator:     request.Taga,
+            UserAlpha:        request.Alpha,
+            MinClusterPower:  request.MinSize,
+            MaxClusterPower:  request.MaxSize,
+            MinkowskiP:       request.MinkowskiP,
+            Criterion:        request.Criterion,
+            Accuracy:         request.Accuracy,
+            MaxIntersections: request.Intersections,
+            MaxSearchNodes:   request.MaxNodes,
+            MaxResults:       request.Top,
+            Diagnostics:      diagnostics);
+        AlgorithmFactory.EnsureOptionsApply(request.Algorithm, options);
 
+        DataFile? file = null;
         IReadOnlyList<ClusterResult> results;
-        try
+        if (request.InputIsMatrix)
         {
-            results = AlgorithmFactory.Run(algorithm, data, options);
+            var tolerance = FuzzyToleranceMatrix.FromCsv(request.Input.FullName);
+            results = AlgorithmFactory.Run(request.Algorithm, tolerance, options, ct);
         }
-        catch (Exception ex)
+        else
         {
-            await Console.Error.WriteLineAsync($"Algorithm error: {ex.Message}");
-            Environment.Exit(2);
-            return;
+            file = DataFile.Load(request.Input.FullName);
+            if (file.HasLabels)
+                await Console.Error.WriteLineAsync(
+                    $"Labels detected: {file.ClassNames!.Length} classes [{string.Join(", ", file.ClassNames)}]");
+            results = AlgorithmFactory.Run(request.Algorithm, file.Data, options, ct);
         }
+
+        if (diagnostics.BudgetExhausted)
+            await Console.Error.WriteLineAsync(
+                $"Warning: the combination search stopped after {diagnostics.NodesVisited:N0} nodes (the node budget). " +
+                "The allotments below are the best found so far, not necessarily the best that exist; " +
+                "raise --max-nodes or restrict the search (--alpha, --accuracy, --min-size).");
 
         if (results.Count == 0)
         {
-            await Console.Error.WriteLineAsync("No valid clustering found for the given parameters.");
-            Environment.Exit(3);
+            await Console.Error.WriteLineAsync(diagnostics.BudgetExhausted
+                ? "No allotment was found before the node budget was spent."
+                : "No allotment exists for the given parameters.");
+            setExitCode(3);
             return;
         }
 
-        // Compute external validation for the best result if labels are available
-        ExternalValidationResult? validation = null;
-        if (labeled is not null)
-            validation = ExternalValidator.Compute(results[0], labeled.TrueLabels, labeled.ClassNames);
+        bool hierarchy = request.Algorithm.Trim().StartsWith("hafc-", StringComparison.OrdinalIgnoreCase);
 
-        string rendered = format.ToLowerInvariant() switch
+        // External validation of the best result when labels are available (flat algorithms only).
+        ExternalValidationResult? validation = null;
+        if (file is { HasLabels: true } && !hierarchy)
+            validation = ExternalValidator.Compute(results[0], file.TrueLabels!, file.ClassNames!);
+
+        // For a hierarchy every level is validated against the labels.
+        IReadOnlyList<ExternalValidationResult>? levelValidation = null;
+        if (file is { HasLabels: true } && hierarchy)
+            levelValidation = [.. results.Select(level => ExternalValidator.Compute(level, file.TrueLabels!, file.ClassNames!))];
+
+        string rendered = format switch
         {
-            "json"  => RenderJson(results, validation),
-            "csv"   => RenderCsv(results),
-            "table" => RenderTable(results, validation),
-            _ => throw new ArgumentException($"Unknown format: '{format}'. Valid names: table, json, csv")
+            "json" => RenderJson(results, validation, levelValidation, diagnostics),
+            "csv"  => RenderCsv(results),
+            _      => hierarchy ? RenderHierarchy(results) : RenderTable(results, validation)
         };
 
-        if (output is not null)
+        if (request.Output is not null)
         {
-            await File.WriteAllTextAsync(output.FullName, rendered, Encoding.UTF8);
-            await Console.Out.WriteLineAsync($"Wrote {results.Count} result(s) to {output.FullName}");
+            await File.WriteAllTextAsync(request.Output.FullName, rendered, Encoding.UTF8, ct);
+            await Console.Error.WriteLineAsync($"Wrote {results.Count} result(s) to {request.Output.FullName}");
         }
         else
         {
             await Console.Out.WriteAsync(rendered);
         }
 
-        if (rules is not null)
+        if (request.Rules is not null && file is not null)
         {
             // one rule per cluster of the best allotment, as in the workbench's Inference page
-            var system = ClusterRuleExtractor.Extract(data, results[0], new RuleExtractionOptions());
-            await File.WriteAllTextAsync(rules.FullName, FisJson.Serialize(system));
-            await Console.Error.WriteLineAsync($"Wrote the inference system ({system.Rules.Count} rules) to {rules.FullName}");
+            var system = ClusterRuleExtractor.Extract(file.Data, results[0], new RuleExtractionOptions());
+            await File.WriteAllTextAsync(request.Rules.FullName, FisJson.Serialize(system), ct);
+            await Console.Error.WriteLineAsync($"Wrote the inference system ({system.Rules.Count} rules) to {request.Rules.FullName}");
         }
     }
 
@@ -98,11 +125,12 @@ internal static class ClusterHandler
     {
         var sb = new StringBuilder();
         bool hasTb = results.Any(r => r.TiebreakerScore.HasValue);
+        string criterionName = results[0].CriterionName;
 
         if (hasTb)
-            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {"F1",-10} {"Dist↓",-8} Centers                  Sizes");
+            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {criterionName,-10} {"Dist↓",-8} Centers                  Sizes");
         else
-            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {"F1",-10} Centers                  Sizes");
+            sb.AppendLine($"{"#",-4} {"c",-4} {"Alpha",-8} {criterionName,-10} Centers                  Sizes");
         sb.AppendLine(new string('-', hasTb ? 88 : 80));
 
         int rank = 1;
@@ -115,18 +143,26 @@ internal static class ClusterHandler
                 : "";
             sb.AppendLine($"{rank,-4} {r.ClusterCount,-4} {r.Alpha,-8:F4} {r.Score,-10:F4} {tbCol}{centers,-25} [{sizes}]");
             rank++;
-            if (rank > 20) { sb.AppendLine("  ... (truncated to top 20)"); break; }
+            if (rank > 20 && results.Count > 20) { sb.AppendLine($"  ... ({results.Count - 20} more; use --format json or csv for all)"); break; }
         }
 
         var best = results[0];
         sb.AppendLine();
-        sb.AppendLine($"Best: c={best.ClusterCount}, α={best.Alpha:F4}, F1={best.Score:F4}" +
-                      (best.TiebreakerScore.HasValue ? $", Dist↓={best.TiebreakerScore.Value:F4}" : ""));
+        sb.AppendLine($"Best: c={best.ClusterCount}, α={best.Alpha:F4}, {criterionName}={best.Score:F4}" +
+                      (best.TiebreakerScore.HasValue ? $", Dist↓={best.TiebreakerScore.Value:F4}" : "") +
+                      (best.IntersectionCount > 0 ? $", objects in intersections: {best.IntersectionCount}" : ""));
         for (int i = 0; i < best.MemberSets.Length; i++)
         {
             string majority = ext is not null ? $"  [{ext.ClusterMajority[i]}]" : "";
             sb.AppendLine($"  Cluster {i + 1} (center={best.Centers[i]}){majority}: [{string.Join(",", best.MemberSets[i])}]");
         }
+
+        var measures = AllotmentMeasures.Compute(best);
+        sb.AppendLine();
+        sb.AppendLine("Validity measures of the best allotment:");
+        sb.AppendLine($"  Linear fuzziness V_LMF          {measures.LinearFuzziness:F6}");
+        sb.AppendLine($"  Quadratic fuzziness V_QMF       {measures.QuadraticFuzziness:F6}");
+        sb.AppendLine($"  Separation and compactness V_MSC {measures.SeparationCompactness:F6}");
 
         if (ext is not null)
         {
@@ -142,34 +178,75 @@ internal static class ClusterHandler
         return sb.ToString();
     }
 
-    private static string RenderJson(IReadOnlyList<ClusterResult> results, ExternalValidationResult? ext)
+    /// <summary>The levels of a hierarchy, coarse to fine: threshold, number of clusters, sizes, typical points.</summary>
+    private static string RenderHierarchy(IReadOnlyList<ClusterResult> levels)
     {
-        static object ResultDto(ClusterResult r) => new
+        var sb = new StringBuilder();
+        string criterionName = levels[0].CriterionName;
+        sb.AppendLine($"Hierarchy: {levels.Count} levels, from {levels[0].ClusterCount} to {levels[^1].ClusterCount} clusters");
+        sb.AppendLine($"{"Level",-6} {"Alpha",-10} {"c",-5} {criterionName,-10} Sizes (typical points)");
+        sb.AppendLine(new string('-', 80));
+        for (int index = 0; index < levels.Count; index++)
         {
-            clusterCount     = r.ClusterCount,
-            alpha            = r.Alpha,
-            score            = r.Score,
-            distTiebreaker   = r.TiebreakerScore,
-            criterion        = r.CriterionName,
-            centers          = r.Centers,
-            clusters         = r.MemberSets
+            var level = levels[index];
+            string clusters = level.ClusterCount <= 12
+                ? string.Join(" ", level.MemberSets.Select((members, cluster) => $"{members.Length}({level.Centers[cluster]})"))
+                : string.Join(" ", level.MemberSets.Select(members => members.Length).OrderByDescending(size => size).Take(12)) + " …";
+            sb.AppendLine($"{index + 1,-6} {level.Alpha,-10:F6} {level.ClusterCount,-5} {level.Score,-10:F4} {clusters}");
+        }
+        return sb.ToString();
+    }
+
+    private static string RenderJson(
+        IReadOnlyList<ClusterResult> results, ExternalValidationResult? ext,
+        IReadOnlyList<ExternalValidationResult>? levelValidation, SearchDiagnostics diagnostics)
+    {
+        static object ValidationDto(ExternalValidationResult validation) => new
+        {
+            purity              = validation.Purity,
+            randIndex           = validation.RandIndex,
+            adjustedRandIndex   = validation.AdjustedRandIndex,
+            nmi                 = validation.NormalizedMutualInfo,
+            fowlkesMallows      = validation.FowlkesMallows,
+            clusterMajority     = validation.ClusterMajority
         };
 
-        object dto = ext is null
-            ? (object)results.Select(ResultDto)
-            : new
+        object ResultDto(ClusterResult r, int index)
+        {
+            var result = new Dictionary<string, object?>
             {
-                results = results.Select(ResultDto),
-                validation = new
-                {
-                    purity              = ext.Purity,
-                    randIndex           = ext.RandIndex,
-                    adjustedRandIndex   = ext.AdjustedRandIndex,
-                    nmi                 = ext.NormalizedMutualInfo,
-                    fowlkesMallows      = ext.FowlkesMallows,
-                    clusterMajority     = ext.ClusterMajority
-                }
+                ["clusterCount"]   = r.ClusterCount,
+                ["alpha"]          = r.Alpha,
+                ["score"]          = r.Score,
+                ["distTiebreaker"] = r.TiebreakerScore,
+                ["criterion"]      = r.CriterionName,
+                ["centers"]        = r.Centers,
+                ["clusters"]       = r.MemberSets
             };
+            if (levelValidation is not null) result["validation"] = ValidationDto(levelValidation[index]);
+            var measures = AllotmentMeasures.Compute(r);
+            result["measures"] = new
+            {
+                linearFuzziness       = measures.LinearFuzziness,
+                quadraticFuzziness    = measures.QuadraticFuzziness,
+                separationCompactness = measures.SeparationCompactness
+            };
+            return result;
+        }
+
+        var dto = new Dictionary<string, object?>
+        {
+            ["results"] = results.Select(ResultDto),
+            ["search"]  = new
+            {
+                nodesVisited    = diagnostics.NodesVisited,
+                budgetExhausted = diagnostics.BudgetExhausted
+            }
+        };
+        if (ext is not null)
+        {
+            dto["validation"] = ValidationDto(ext);
+        }
 
         return JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true });
     }
@@ -182,10 +259,9 @@ internal static class ClusterHandler
         int rank = 1;
         foreach (var r in results)
         {
-            string tbField = hasTb ? $",{(r.TiebreakerScore.HasValue ? r.TiebreakerScore.Value.ToString("F6") : "")}" : "";
-            sb.AppendLine($"{rank},{r.ClusterCount},{r.Alpha:F6},{r.Score:F6}{tbField}," +
-                          $"\"{string.Join(";", r.Centers)}\"," +
-                          $"\"{string.Join(";", r.MemberSets.Select(s => s.Length))}\"");
+            string tbField = hasTb ? $",{(r.TiebreakerScore.HasValue ? r.TiebreakerScore.Value.ToString("F6", CultureInfo.InvariantCulture) : "")}" : "";
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"{rank},{r.ClusterCount},{r.Alpha:F6},{r.Score:F6}{tbField},\"{string.Join(";", r.Centers)}\",\"{string.Join(";", r.MemberSets.Select(s => s.Length))}\""));
             rank++;
         }
         return sb.ToString();

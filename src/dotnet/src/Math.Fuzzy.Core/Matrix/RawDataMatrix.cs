@@ -61,44 +61,11 @@ public sealed class RawDataMatrix
         return new RawDataMatrix(flat, rows, cols);
     }
 
-    public static RawDataMatrix FromCsv(string path, char separator = ',')
-    {
-        var lines = File.ReadAllLines(path)
-            .Where(l => !string.IsNullOrWhiteSpace(l))
-            .ToArray();
-
-        // Skip header row if the first cell is not a number
-        int start = 0;
-        if (lines.Length > 0)
-        {
-            var firstCell = lines[0].Split(separator)[0].Trim();
-            if (!double.TryParse(firstCell, System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out _))
-                start = 1;
-        }
-
-        var dataLines = lines[start..];
-        var rows = dataLines.Length;
-
-        // Detect which columns are numeric by checking the first data row.
-        // Non-numeric columns (class labels, IDs) are silently skipped.
-        var firstParts = dataLines[0].Split(separator);
-        var numericCols = Enumerable.Range(0, firstParts.Length)
-            .Where(j => double.TryParse(firstParts[j].Trim(),
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out _))
-            .ToArray();
-
-        var matrix = new RawDataMatrix(rows, numericCols.Length);
-        for (int i = 0; i < rows; i++)
-        {
-            var parts = dataLines[i].Split(separator);
-            for (int ci = 0; ci < numericCols.Length; ci++)
-                matrix[i, ci] = double.Parse(parts[numericCols[ci]].Trim(),
-                    System.Globalization.CultureInfo.InvariantCulture);
-        }
-        return matrix;
-    }
+    /// <summary>
+    /// Attribute values of a delimited text file (see <see cref="MathFuzzy.Core.IO.DataFile"/>):
+    /// a header row, a label column and a column of object names are recognised and left out.
+    /// </summary>
+    public static RawDataMatrix FromCsv(string path) => MathFuzzy.Core.IO.DataFile.Load(path).Data;
 
     public double[] ToFlatArray() => (double[])_data.Clone();
 }

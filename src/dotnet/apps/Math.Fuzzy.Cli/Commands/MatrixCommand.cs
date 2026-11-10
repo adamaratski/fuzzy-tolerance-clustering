@@ -30,7 +30,7 @@ public static class MatrixCommand
                 Normalization: parse.GetValue(buildNorm)!,
                 MinkowskiP:    parse.GetValue(buildMinkP),
                 Accuracy:      parse.GetValue(buildAccuracy));
-            var data   = CsvFiles.ReadData(parse.GetRequiredValue(buildInput));
+            var data   = CsvFiles.Read(parse.GetRequiredValue(buildInput)).Data;
             var matrix = AlgorithmFactory.CreateToleranceBuilder(options).Build(data);
             await CsvFiles.WriteAsync(CsvFiles.Format(matrix), parse.GetValue(buildOutput),
                                       $"the {matrix.Size} × {matrix.Size} tolerance matrix");

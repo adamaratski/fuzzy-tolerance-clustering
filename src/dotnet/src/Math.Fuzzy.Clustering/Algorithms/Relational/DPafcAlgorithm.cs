@@ -6,7 +6,7 @@ using MathFuzzy.Core.Matrix;
 namespace MathFuzzy.Clustering.Algorithms.Relational;
 
 /// <summary>
-/// D-PAFC — Direct Principal Allotment Fuzzy Clustering (Viattchenin 2013, sec. 2.2.3).
+/// D-PAFC — the direct algorithm for detecting the principal allotment among fuzzy clusters (Viattchenin 2013, sec. 2.2.3).
 ///
 /// The number of clusters is not given. The α-levels of T are scanned in ascending
 /// order; levels at which some α-neighbourhood still covers the whole set X are
@@ -19,6 +19,10 @@ namespace MathFuzzy.Clustering.Algorithms.Relational;
 /// the result is the principal allotment among the minimal number c* of clusters.
 /// A positive value admits particularly separated clusters with up to that many
 /// objects in intersection areas.
+///
+/// For w = 0 the number of clusters of a level is unique (a fully separated allotment is an
+/// efficient dominating set of the α-cut graph), so at most one c of the inner loop has
+/// allotments, and the exact-cover test of the D-AFC engine rejects the others at once.
 /// </summary>
 public sealed class DPafcAlgorithm(
     IAlphaSelector alphaSelector,
@@ -26,7 +30,10 @@ public sealed class DPafcAlgorithm(
     int            minClusterPower  = 1,
     int            maxClusterPower  = 0,
     int            maxIntersections = 0,
-    Action<int, int>? levelProgress = null) : IRelationalClusterer
+    Action<int, int>? levelProgress = null,
+    long           maxSearchNodes   = 500_000_000L,
+    SearchDiagnostics? diagnostics  = null,
+    int            maxResults       = 200) : IRelationalClusterer
 {
     public IReadOnlyList<ClusterResult> Run(FuzzyToleranceMatrix matrix, CancellationToken ct = default)
     {
@@ -77,11 +84,18 @@ public sealed class DPafcAlgorithm(
             for (int c = cMin; c <= cMax; c++)
             {
                 var dafc = new DAfcAlgorithm(
-                    new DAfcOptions(c, minClusterPower, maxClusterPower, MaxIntersections: w),
+                    new DAfcOptions(c, minClusterPower, maxClusterPower, MaxIntersections: w,
+                                    MaxCombinations: maxSearchNodes, MaxResults: maxResults,
+                                    Diagnostics: diagnostics),
                     alphaSelector, criterion);
                 var found = dafc.RunForAlpha(matrix, alpha, ct);
                 if (found.Count > 0)
                     return [.. found.OrderByDescending(r => r.Score).ThenBy(r => r, ClusterResult.Order)];
+
+                // A search cut short by its node budget proves nothing about this level:
+                // going on to a larger c or a higher level would return a wrong principal allotment.
+                if (diagnostics?.BudgetExhausted == true)
+                    return [];
             }
         }
 

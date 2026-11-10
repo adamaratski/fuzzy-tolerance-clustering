@@ -131,9 +131,9 @@ public class AlgorithmFactoryTests
     }
 
     [Fact]
-    public void Run_DafcWithoutClusterCount_ThrowsInvalidOperation()
+    public void Run_DafcWithoutClusterCount_IsRejected()
     {
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<ArgumentException>(() =>
             AlgorithmFactory.Run("dafc", TwoGroupData(), DefaultOptions, TestContext.Current.CancellationToken));
     }
 

@@ -9,7 +9,9 @@ namespace MathFuzzy.Core.Matrix;
 ///   2. Compute pairwise distances
 ///   3. T[i,j] = 1 - dist(i,j)
 ///   4. Optionally quantise T to the accuracy threshold ε (Viattchenin 2013, sec. 2.2.4):
-///      values that differ by less than ε are merged into one α-level.
+///      values that differ by less than ε are merged into one α-level. Without ε the values
+///      that differ by rounding noise only (≤ 10⁻¹²) are merged
+///      (<see cref="FuzzyToleranceMatrix.SnapLevels"/>).
 /// </summary>
 /// <param name="distance">Distance between normalised objects.</param>
 /// <param name="normalization">Column normalisation applied before the distance.</param>
@@ -42,6 +44,10 @@ public sealed class ToleranceMatrixBuilder(IDistance distance, INormalization no
             }
         });
 
-        return Accuracy is double eps ? matrix.Quantize(eps) : matrix;
+        if (Accuracy is double eps) return matrix.Quantize(eps);
+
+        // Full precision: values that differ only by rounding noise are one α-level.
+        matrix.SnapLevels();
+        return matrix;
     }
 }

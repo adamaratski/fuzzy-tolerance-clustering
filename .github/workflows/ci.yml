@@ -1,0 +1,32 @@
+name: build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dotnet:
+    runs-on: windows-latest   # the desktop workbench is a WPF application
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        working-directory: src/dotnet
+        run: dotnet build Math.Fuzzy.slnx -c Release
+      - name: Test
+        working-directory: src/dotnet
+        run: dotnet test --solution Math.Fuzzy.slnx -c Release --no-build
+      - name: Reproduce the fast experiments of the book
+        run: python results/reproduce.py --check --only sneath
+
+  matlab-toolbox:
+    runs-on: ubuntu-latest   # the toolbox is plain MATLAB code; it is tested with GNU Octave
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GNU Octave
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends octave
+      - name: Tests of the MATLAB toolbox
+        run: octave --no-gui --eval "run('src/matlab/tests/run_tests.m')"

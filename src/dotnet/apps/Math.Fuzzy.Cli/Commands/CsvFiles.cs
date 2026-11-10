@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using MathFuzzy.Core.IO;
 using MathFuzzy.Core.Matrix;
 
 namespace MathFuzzy.Cli.Commands;
@@ -7,30 +8,8 @@ namespace MathFuzzy.Cli.Commands;
 /// <summary>CSV input and output shared by the commands. Numbers are always written with a decimal point.</summary>
 internal static class CsvFiles
 {
-    /// <summary>Attribute data of a CSV file; a label column, when present, is left out.</summary>
-    public static RawDataMatrix ReadData(FileInfo input) =>
-        LabeledDataset.TryFromCsv(input.FullName)?.Data ?? RawDataMatrix.FromCsv(input.FullName);
-
-    /// <summary>
-    /// Header names of the numeric columns, in file order; x1…xm when the file has no header
-    /// or the names cannot be matched to the columns of <paramref name="data"/>.
-    /// </summary>
-    public static string[] FeatureNames(FileInfo input, RawDataMatrix data)
-    {
-        var fallback = Enumerable.Range(1, data.Cols).Select(column => $"x{column}").ToArray();
-        var lines = File.ReadLines(input.FullName).Where(line => !string.IsNullOrWhiteSpace(line)).Take(2).ToArray();
-        if (lines.Length < 2) return fallback;
-
-        var header = lines[0].Split(',').Select(cell => cell.Trim().TrimStart('﻿')).ToArray();
-        if (IsNumber(header[0])) return fallback;
-
-        var sample = lines[1].Split(',');
-        var names = Enumerable.Range(0, Math.Min(header.Length, sample.Length))
-            .Where(column => IsNumber(sample[column]))
-            .Select(column => header[column])
-            .ToArray();
-        return names.Length == data.Cols ? names : fallback;
-    }
+    /// <summary>Attribute data, attribute names and labels of a delimited text file.</summary>
+    public static DataFile Read(FileInfo input) => DataFile.Load(input.FullName);
 
     /// <summary>Writes a square matrix, one row per line, with full double precision.</summary>
     public static string Format(FuzzyToleranceMatrix matrix)
@@ -78,13 +57,21 @@ internal static class CsvFiles
         await Console.Error.WriteLineAsync($"Wrote {what} to {output.FullName}");
     }
 
-    /// <summary>Runs a command body; a failure is reported on standard error with exit code 2.</summary>
-    public static async Task<int> Guard(Func<Task> body)
+    /// <summary>
+    /// Runs a command body; a failure is reported on standard error with exit code 2.
+    /// On success the exit code is 0, or what <paramref name="exitCode"/> returns.
+    /// </summary>
+    public static async Task<int> Guard(Func<Task> body, Func<int>? exitCode = null)
     {
         try
         {
             await body();
-            return 0;
+            return exitCode?.Invoke() ?? 0;
+        }
+        catch (OperationCanceledException)
+        {
+            await Console.Error.WriteLineAsync("Cancelled.");
+            return 130;
         }
         catch (Exception error) when (error is IOException or FormatException or ArgumentException
                                           or InvalidOperationException or IndexOutOfRangeException
@@ -94,7 +81,4 @@ internal static class CsvFiles
             return 2;
         }
     }
-
-    private static bool IsNumber(string cell) =>
-        double.TryParse(cell.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out _);
 }

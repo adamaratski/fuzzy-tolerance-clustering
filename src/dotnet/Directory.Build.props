@@ -1,0 +1,14 @@
+<Project>
+
+  <!-- Metadata shared by every project of the solution. -->
+  <PropertyGroup>
+    <Version>1.1.0</Version>
+    <Authors>Aliaksandr Damaratski</Authors>
+    <Copyright>Copyright © Aliaksandr Damaratski</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/adamaratski/fuzzy-tolerance-clustering</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+</Project>

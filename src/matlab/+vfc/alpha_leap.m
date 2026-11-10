@@ -15,7 +15,7 @@ function alpha_star = alpha_leap(T)
 %   2013, p. 116) says "minimal leap", but the published results it
 %   accompanies (Yang-Wu: c = 4 at alpha* = 0.9994; Sneath-Sokal: c = 2 at
 %   alpha* = 0.96875; Iris: c = 2 at alpha* = 0.9929) are reproduced only by
-%   the maximal leap, which is also what the author's software computed.
+%   the maximal leap.
 %   This function therefore uses the maximal leap, in agreement with the
 %   .NET implementation (LeapHeuristicAlphaSelector).
 %

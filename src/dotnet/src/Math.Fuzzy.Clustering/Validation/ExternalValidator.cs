@@ -20,7 +20,8 @@ public sealed record ExternalValidationResult(
 public static class ExternalValidator
 {
     /// <summary>
-    /// Computes all external indices for a flat clustering result.
+    /// Computes all external indices for a flat clustering result. Objects that belong to
+    /// several clusters are assigned to the cluster of their largest membership.
     /// </summary>
     /// <param name="result">Clustering output.</param>
     /// <param name="trueLabels">Ground-truth 0-based class index, one per object.</param>
@@ -32,11 +33,22 @@ public static class ExternalValidator
         int c = result.ClusterCount;
         int k = classNames.Length;
 
-        // clusterOf[obj] = cluster index
+        // clusterOf[obj] = cluster index. An object in an intersection area belongs to several
+        // clusters; it is counted in the one where its membership is largest (the first such
+        // cluster on a tie), which is how a possibilistic allotment is hardened.
         var clusterOf = new int[n];
+        var bestMembership = new double[n];
+        Array.Fill(bestMembership, double.NegativeInfinity);
         for (int ci = 0; ci < result.MemberSets.Length; ci++)
         foreach (var obj in result.MemberSets[ci])
-            clusterOf[obj] = ci;
+        {
+            double membership = result.Membership[obj, ci];
+            if (membership > bestMembership[obj])
+            {
+                bestMembership[obj] = membership;
+                clusterOf[obj] = ci;
+            }
+        }
 
         // Contingency table nij[cluster, class]
         var nij = new int[c, k];

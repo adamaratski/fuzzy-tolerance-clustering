@@ -273,11 +273,9 @@ public sealed partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private async Task Run()
     {
-        if (_workspace.RawData is null)
+        if (_workspace.RawData is null && _workspace.ActiveWorkset?.InputMatrix is null)
         {
-            StatusMessage = ActiveWorkset?.IsMatrixInput == true
-                ? "This workset is a tolerance matrix: it can be inspected on the Tolerance tab, but the algorithms of this version run on attribute data (a CSV file)."
-                : "Open a CSV data file first.";
+            StatusMessage = "Open a data file or a tolerance matrix first.";
             return;
         }
 
@@ -311,7 +309,8 @@ public sealed partial class ShellViewModel : ObservableObject
                     ProgressValue = f * 100;
                 }
             });
-            var results = await _runner.RunAsync(options, progress, _cts.Token);
+            var outcome = await _runner.RunAsync(options, progress, _cts.Token);
+            var results = outcome.Results;
 
             _workspace.SetResults(results);
             PushResultsToTabs(results);
@@ -346,7 +345,10 @@ public sealed partial class ShellViewModel : ObservableObject
                         : "No valid clustering found for these parameters.";
             }
 
-            SelectedTab = options.Algorithm == "hafc-tc" && _resultsPanel.DendrogramTab.HasResult
+            if (outcome.SearchIncomplete)
+                StatusMessage += $"  ⚠ The search stopped at its node budget ({outcome.NodesVisited:N0} nodes): better allotments may exist.";
+
+            SelectedTab = options.Algorithm.StartsWith("hafc-", StringComparison.Ordinal) && _resultsPanel.DendrogramTab.HasResult
                 ? _resultsPanel.DendrogramTab
                 : _resultsPanel.ClusterTableTab;
         }
@@ -547,7 +549,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private void UpdateDendrogram(string algorithm, IReadOnlyList<ClusterResult> results)
     {
-        if (algorithm != "hafc-tc" || results.Count == 0)
+        if (!algorithm.StartsWith("hafc-", StringComparison.Ordinal) || results.Count == 0)
         {
             _resultsPanel.DendrogramTab.Clear();
             return;

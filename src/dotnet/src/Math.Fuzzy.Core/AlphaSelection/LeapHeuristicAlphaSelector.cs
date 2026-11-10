@@ -14,11 +14,19 @@ namespace MathFuzzy.Core.AlphaSelection;
 ///
 /// The printed description of the heuristic says "minimal leap", but the published
 /// results it accompanies (Yang–Wu: c = 4 at α* = 0.9994; Sneath–Sokal: c = 2 at
-/// α* = 0.96875; Iris: c = 2 at α* = 0.9929) are reproduced only by the MAXIMAL leap,
-/// which is also what the author's own software computed; this implementation
-/// therefore selects the maximal leap. The ratio form α_{ℓ−1}/α_ℓ (minimal ratio)
+/// α* = 0.96875; Iris: c = 2 at α* = 0.9929) are reproduced only by the MAXIMAL leap;
+/// this implementation therefore selects the maximal leap. The ratio form α_{ℓ−1}/α_ℓ (minimal ratio)
 /// gives the same selection on all three data sets.
 /// </summary>
+public enum LeapForm
+{
+    /// <summary>The largest difference α_ℓ − α_{ℓ−1} (the form used for the closure-based algorithms).</summary>
+    Difference,
+
+    /// <summary>The smallest ratio α_{ℓ−1} / α_ℓ (the form printed for the TAGA family, Viattchenin and Damaratski 2013).</summary>
+    Ratio
+}
+
 public sealed class LeapHeuristicAlphaSelector : IAlphaSelector
 {
     public static readonly LeapHeuristicAlphaSelector Instance = new();
@@ -31,7 +39,14 @@ public sealed class LeapHeuristicAlphaSelector : IAlphaSelector
     /// levels of a relation (values in (0,1)). Returns null when the list is empty and
     /// the single level when there is only one.
     /// </summary>
-    public static double? SelectFrom(IReadOnlyList<double> descendingValues)
+    public static double? SelectFrom(IReadOnlyList<double> descendingValues) =>
+        SelectFrom(descendingValues, LeapForm.Difference);
+
+    /// <summary>
+    /// The leap heuristic in the given form. The two forms agree on the published examples but
+    /// not in general: the ratio form favours leaps between small levels.
+    /// </summary>
+    public static double? SelectFrom(IReadOnlyList<double> descendingValues, LeapForm form)
     {
         int count = descendingValues.Count;
         if (count == 0) return null;
@@ -50,7 +65,10 @@ public sealed class LeapHeuristicAlphaSelector : IAlphaSelector
         int best = 1;
         for (int l = 1; l < count; l++)
         {
-            double leap = ascending[l] - ascending[l - 1];
+            // both forms are written as "larger is better": a difference, or one minus a ratio
+            double leap = form == LeapForm.Difference
+                ? ascending[l] - ascending[l - 1]
+                : 1.0 - ascending[l - 1] / ascending[l];
             if (leap > maxLeap + tieTolerance)
             {
                 maxLeap = leap;

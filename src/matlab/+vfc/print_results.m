@@ -1,5 +1,5 @@
 function print_results(results, varargin)
-%VFC.PRINT_RESULTS  Display a summary of D-AFC / D-PAFC clustering results.
+%VFC.PRINT_RESULTS  Display a summary of clustering results.
 %
 %   vfc.print_results(RESULTS)
 %   vfc.print_results(RESULTS, 'MaxRows', N)
@@ -19,7 +19,7 @@ function print_results(results, varargin)
 %   Output: printed to stdout.
 %
 %   Example:
-%     r = vfc.dafc(T, 3, 0.7);
+%     r = vfc.dpafc(T);
 %     vfc.print_results(r, 'Labels', y);
 %
 %   See also: vfc.dafc, vfc.dpafc, vfc.dafc_tc
@@ -77,60 +77,38 @@ function print_results(results, varargin)
 end
 
 % =========================================================================
-function p = purity(pred, true_labels)
-    classes = unique(true_labels);
-    clusters = unique(pred);
-    total = 0;
-    for cl = clusters(:)'
-        mask = pred == cl;
-        counts = histc(true_labels(mask), classes);  %#ok<HISTC>
-        total = total + max(counts);
-    end
-    p = total / numel(pred);
+function C = contingency(pred, true_labels)
+    % C(i,j) = number of objects of class i assigned to cluster j
+    [~, ~, class_index]   = unique(true_labels(:));
+    [~, ~, cluster_index] = unique(pred(:));
+    C = accumarray([class_index, cluster_index], 1);
 end
 
-% =========================================================================
+function p = purity(pred, true_labels)
+    C = contingency(pred, true_labels);
+    p = sum(max(C, [], 1)) / numel(pred);
+end
+
 function ari = adjusted_rand(pred, true_labels)
-    % Hubert & Arabie (1985) formula
+    % Hubert & Arabie (1985)
     n   = numel(pred);
-    C   = confusionmat(true_labels, pred);
+    C   = contingency(pred, true_labels);
     sum_row = sum(C, 2);  sum_col = sum(C, 1);
-    a  = sum(C(:).^2 - C(:)) / 2;           % sum C(i,j) choose 2
-    b  = sum(sum_row.^2 - sum_row) / 2;     % sum a_i choose 2
-    c  = sum(sum_col.^2 - sum_col) / 2;     % sum b_j choose 2
+    a  = sum(C(:).^2 - C(:)) / 2;
+    b  = sum(sum_row.^2 - sum_row) / 2;
+    c  = sum(sum_col.^2 - sum_col) / 2;
     d  = n*(n-1)/2;
     expected = b*c/d;
     ari = (a - expected) / ((b + c)/2 - expected + eps);
 end
 
-% =========================================================================
 function val = nmi(pred, true_labels)
     n = numel(pred);
-    pred_u  = unique(pred);
-    true_u  = unique(true_labels);
-    nc = numel(pred_u);
-    nt = numel(true_u);
-
-    H_pred = 0;
-    for k = 1:nc
-        p = sum(pred == pred_u(k)) / n;
-        if p > 0, H_pred = H_pred - p*log2(p); end
-    end
-    H_true = 0;
-    for k = 1:nt
-        p = sum(true_labels == true_u(k)) / n;
-        if p > 0, H_true = H_true - p*log2(p); end
-    end
-    MI = 0;
-    for ki = 1:nc
-        for kj = 1:nt
-            pij = sum(pred == pred_u(ki) & true_labels == true_u(kj)) / n;
-            pi  = sum(pred == pred_u(ki)) / n;
-            pj  = sum(true_labels == true_u(kj)) / n;
-            if pij > 0
-                MI = MI + pij * log2(pij / (pi * pj + eps));
-            end
-        end
-    end
-    val = 2*MI / (H_pred + H_true + eps);
+    P = contingency(pred, true_labels) / n;
+    row = sum(P, 2);  col = sum(P, 1);
+    entropy = @(q) -sum(q(q > 0) .* log2(q(q > 0)));
+    outer = row * col;
+    mask = P > 0;
+    MI = sum(P(mask) .* log2(P(mask) ./ outer(mask)));
+    val = 2*MI / (entropy(row) + entropy(col) + eps);
 end

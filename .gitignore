@@ -3,6 +3,7 @@ bin/
 obj/
 TestResults/
 *.user
+*_wpftmp.csproj
 *.suo
 .vs/
 .vscode/

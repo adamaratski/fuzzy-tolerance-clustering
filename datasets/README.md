@@ -1,6 +1,6 @@
 # Math.Fuzzy — Clustering Datasets
 
-All files are comma-separated CSV with header row. Numeric features only in base versions. Files ending `_labeled.csv` include one label column (`class`, `type`, `variety`, `species` or `group`) for validation. Files of type *relational* contain a fuzzy similarity matrix ($n \times n$) and are used directly as input to relational algorithms (D-AFC, D-PAFC, D-AFC-PS).
+All files are comma-separated CSV with header row. Numeric features only in base versions. Files ending `_labeled.csv` include one label column (`class`, `type`, `variety`, `species` or `group`; the reader also accepts `label`, `labels`, `target` and `category`) for validation. Files of type *relational* contain a fuzzy tolerance matrix ($n \times n$, symmetric, values in $[0,1]$) and are passed to the algorithms with `--matrix`.
 
 ## Real-world datasets (UCI Machine Learning Repository)
 
@@ -32,12 +32,13 @@ Used in the original AFC algorithm papers.
 
 ## Classic relational benchmarks (similarity matrix data)
 
-These files contain an $n \times n$ fuzzy similarity matrix and are the **direct input** of the relational algorithms (D-AFC, D-PAFC), without any distance computation step. In the library a matrix is passed to the algorithm classes (`FuzzyToleranceMatrix.FromCsv`), and `mfuzzy matrix closure` reads it; `mfuzzy cluster` and the workbench currently run on attribute data only.
+These files contain an $n \times n$ fuzzy tolerance matrix and are the **direct input** of the algorithms, without any distance computation step: `mfuzzy cluster --matrix --input <file>`, the *Open matrix* command of the workbench, or `FuzzyToleranceMatrix.FromCsv` in the library.
 
 | File | n | Clusters | Source |
 |---|---|---|---|
 | `windham_relational.csv` | 11 | 2 | Windham's relational similarity data (Viattchenin 2013, Chapter 2). |
 | `tamura_5.csv` | 5 | 2 | Tamura's 5-object short example — minimal illustrative case. |
+| `tamura_16.csv` | 16 | 3 families | Tamura, Higuchi and Tanaka's (1971) subjective similarity of 16 portraits from three families, as printed in Viattchenin (2013, Table 2.4). Used for D-PAFC and D-AFC(u). |
 | `dave_sen_fruit.csv` | 7 | 2 | Dave & Sen fruit dataset (tolerance matrix over 7 fruit objects). |
 
 ## Recommended algorithm → dataset pairings
@@ -45,7 +46,8 @@ These files contain an $n \times n$ fuzzy similarity matrix and are the **direct
 | Algorithm | Recommended datasets |
 |---|---|
 | D-AFC(c) | `windham_relational`, `tamura_5`, `dave_sen_fruit` |
-| D-PAFC | `windham_relational`, `sneath_sokal` (build T from features) |
+| D-AFC(u) | `tamura_16`, `sneath_sokal` (build T from features) |
+| D-PAFC | `windham_relational`, `tamura_16`, `sneath_sokal` (build T from features) |
 | D-AFC-TC, D-AFC-TC(α) | `yang_wu`, `looney`, `iris`, `seeds` |
 | D-PAFC-TC (outlier detection) | `rehms`, `iris` |
 | D-AFC-TAGA, D-PAFC-TAGA | `wine`, `glass`, `seeds` |

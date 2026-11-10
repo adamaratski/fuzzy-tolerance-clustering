@@ -99,16 +99,17 @@ result of a run with its validity indices, or the reason why a run did not start
 
 ## CSV files
 
-*Open data → CSV data…* (Ctrl+O) opens a comma-separated file. The rules are:
+*Open data → CSV data…* (Ctrl+O) opens a delimited text file (comma, semicolon or tab separated; with a semicolon or tab a decimal comma is accepted). The rules are:
 
 * A header row is optional. Column names from the header are used as attribute
   names on the scatter plot and in the inference page.
 * Every numeric column is an attribute. Values use a decimal point.
 * One column may hold class labels. A text column is treated as the label column
   automatically; a numeric column is treated as labels when its header is
-  `class`, `label`, `labels`, `type`, `species`, `variety`, `target` or
-  `category`. Labels are never used by the algorithms — they serve only to compute
-  purity, the Rand indices and the mutual information after a run.
+  `class`, `label`, `labels`, `type`, `species`, `variety`, `target`, `category` or
+  `group`. Labels are never used by the algorithms — they serve only to compute
+  purity, the Rand indices and the mutual information after a run. A missing value is reported as an error with its position; a text
+  column whose values are all different (object names) is ignored.
 
 ![The *Open data* menu.](images/16-open-data-menu.png){width=100%}
 
@@ -121,9 +122,12 @@ format described above; the file `datasets/README.md` lists their sources.
 
 *Open data → Tolerance matrix…* (Ctrl+Shift+O) loads an $n \times n$ matrix $T$
 with entries in $[0,1]$. The diagonal is set to 1 and the matrix is used as the
-fuzzy tolerance relation directly, without attributes. Such a workset shows the
-matrix on the *Tolerance* tab and can be examined there, but the algorithms of
-this version run on attribute data only (@sec-troubleshooting).
+fuzzy tolerance relation directly, without attributes. The matrix must be
+symmetric; a header row and a first column of object names are allowed. Every
+algorithm except the dimensionality reduction runs on such a workset. Since there
+are no attributes, the prototype-based algorithms then resolve ties between
+typical points by the object number, and the pages that need attributes
+(*Visualize*, the inference system) stay empty.
 
 ## The data page
 
@@ -144,17 +148,18 @@ The blue chip at the top of the panel always shows the selected algorithm.
 | Category | Algorithm | Needs $c$? | What it does |
 |:--|:--|:--|:--|
 | Relational | D-AFC | yes | The basic algorithm: the best allotment among $c$ clusters over all $\alpha$-levels of $T$. |
+| Relational | D-AFC(u) | no | The largest cluster size $u$ is given instead of $c$; the number of clusters and the threshold follow. The clusters may share objects only if no fully separated allotment exists. |
 | Relational | D-PAFC | no | The principal allotment: the least number of clusters at the first admissible level. |
 | Prototype-based | D-AFC-TC | no | Replaces $T$ by its transitive closure $\widetilde{T}$; the level is chosen by the leap heuristic, the number of clusters follows from the level. |
 | Prototype-based | D-AFC-TC($\alpha$) | no | As D-AFC-TC, but the leap is searched only at levels not below a threshold $\alpha^*$ given by the user. |
 | Prototype-based | D-PAFC-TC | no | The principal allotment on $\widetilde{T}$: its first splitting level. |
-| Prototype-based | D-AFC-TAGA, D-PAFC-TAGA | no | The same with a transitive approximation built by an aggregation operator instead of the closure. Experimental in this version. |
-| Hierarchical | H-AFC-TC | no | The allotments of every level of $\widetilde{T}$, shown as a dendrogram. |
+| Prototype-based | D-AFC-TAGA, D-AFC-TAGA($\alpha$), D-PAFC-TAGA | no | The same three algorithms with a transitive approximation built by an aggregation operator instead of the closure. |
+| Hierarchical | H-AFC-TC, H-AFC-TAGA | no | The allotments of every level of $\widetilde{T}$ or of the transitive approximation, shown as a dendrogram. |
 | Dim. reduction | D-PAFC-DR, D-PAFC-TC-DR, D-PAFC-TAGA-DR | no | Attribute selection: the same algorithms applied to a tolerance relation between the attributes. |
 
 : The algorithms of the workbench. {#tbl-algorithms}
 
-![The prototype-based category: the *Variant* box lists its five algorithms.](images/19-prototype-variants.png){width=100%}
+![The prototype-based category with its *Variant* box (the screenshot shows version 1.0; version 1.1 adds D-AFC-TAGA(α) to the list).](images/19-prototype-variants.png){width=100%}
 
 ![The relational category with D-AFC selected; the fields *Clusters c* and *α levels* belong to this algorithm. Until *c* is entered the panel reports the missing parameter in red.](images/08-relational.png){width=100%}
 
@@ -187,11 +192,15 @@ The lower part depends on the algorithm:
 * **α levels** (D-AFC): *All levels* searches every distinct level of $T$;
   *Manual* searches a single level: the highest level of $T$ that does not exceed
   the **α\* threshold** entered below.
-* **α\* threshold** (D-AFC-TC($\alpha$)): the lowest admissible level.
+* **Max size u** (D-AFC(u)): the largest number of objects a cluster may have,
+  an integer below the number of objects.
+* **α\* threshold** (D-AFC-TC($\alpha$), D-AFC-TAGA($\alpha$)): the lowest admissible level.
 * **Intersections w** (D-PAFC): the number of objects allowed to lie in more
   than one cluster; 0 asks for fully separated clusters.
 * **TAGA operator** (TAGA variants): the aggregation operator of the transitive
-  approximation.
+  approximation — maximum (the transitive closure), minimum, mean, median, upper
+  and lower median. *Automatic* computes all six approximations and takes the one
+  nearest to $T$.
 
 ![D-AFC-TC(α) with its field *α\* threshold*.](images/20-dafc-tc-alpha.png){width=100%}
 
@@ -262,8 +271,8 @@ in file order.
 
 ## Dendrogram
 
-After a run of H-AFC-TC the tab shows the hierarchy of allotments: the levels of
-$\widetilde{T}$ on the vertical axis, the finest partition at the top, merges at
+After a run of H-AFC-TC or H-AFC-TAGA the tab shows the hierarchy of allotments: the levels of
+the relation on the vertical axis, the finest partition at the top, merges at
 decreasing α going down. The table on the right lists every level with its
 number of clusters, the cluster sizes and the criterion; clicking a level
 highlights its cut in the tree. For other algorithms the tab is empty.
@@ -349,7 +358,7 @@ by `mfuzzy infer`.
 # Settings
 
 The page sets the defaults for the number of results kept and the minimal size of
-a cluster (applied by the relational algorithms D-AFC and D-PAFC), and shows the
+a cluster (applied by every algorithm), and shows the
 versions of the components.
 
 ![The Settings page.](images/13-settings.png){width=100%}
@@ -367,10 +376,12 @@ versions of the components.
   on every level; a few hundred objects with $c = 3$ can take several minutes,
   and partially separated clusters ($w > 0$) rescan all levels. The closure-based
   algorithms are fast. *Stop* interrupts a run.
-* *A workset loaded as a matrix cannot be run.* The algorithms of this version
-  take attribute data; a matrix workset can be inspected on the *Tolerance* tab.
-* *The TAGA variants give unexpected results.* The transitive approximation is
-  experimental in this version and its results are not reported in the book.
+* *"The search stopped at its node budget."* A relational run visited more
+  combinations than its budget allows. The allotments shown are the best found so
+  far and better ones may exist: restrict the search (a manual level, an accuracy
+  threshold) or use the command-line tool with a larger `--max-nodes`.
+* *A dimensionality-reduction run on a matrix workset is refused.* Attribute
+  selection needs attributes; open the data file instead of the matrix.
 * *The results of a previous run are still shown after an error.* They belong to
   the previous run; the status bar reports the error of the new one.
 
@@ -385,6 +396,8 @@ mfuzzy cluster --algorithm dafc --input datasets/iris_labeled.csv --clusters 3 ^
 ```
 
 The options carry the names of the panel fields (`--distance`, `--normalize`,
-`--criterion`, `--accuracy`, `--clusters`, `--alpha`, `--intersections`, `--taga`),
+`--criterion`, `--accuracy`, `--clusters`, `--alpha`, `--max-size`, `--intersections`, `--taga`;
+`--matrix` for a tolerance matrix),
 and `--format json` writes the same JSON as the *Export* command. The README of
 the repository documents the tool, the .NET library and the MATLAB toolbox.
+The tool also has the commands `size` (choice of the largest cluster size $u$), `bounds` (bounds of the number of clusters), `matrix build`, `matrix closure`, `reduce` and `infer`; the README documents them.

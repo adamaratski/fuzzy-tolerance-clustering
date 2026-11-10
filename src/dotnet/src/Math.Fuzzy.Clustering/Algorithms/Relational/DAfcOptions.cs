@@ -30,6 +30,16 @@ namespace MathFuzzy.Clustering.Algorithms.Relational;
 /// Number of valid alpha levels processed in parallel per chunk when
 /// <see cref="EarlyStop"/> is true. Default 8.
 /// </param>
+/// <param name="ExactCoverPruning">
+/// When true (the default) the search uses the exact-cover bound on the sum of the cluster
+/// powers and, for w = 0, treats candidates with a common neighbour as incompatible. The
+/// result is the same either way; false is for measuring what the bound saves.
+/// </param>
+/// <param name="Diagnostics">
+/// Optional collector of search statistics; after the run it tells how many search nodes were
+/// visited and whether the node budget <see cref="MaxCombinations"/> was exhausted, in which
+/// case the returned list may be incomplete.
+/// </param>
 /// <param name="LevelProgress">
 /// Optional scan-progress callback: (levels done, levels total). Invoked roughly
 /// every 32 completed levels from worker threads — keep the handler cheap and thread-safe.
@@ -43,7 +53,9 @@ public sealed record DAfcOptions(
     int  MaxResults           = 200,
     bool EarlyStop            = false,
     int  EarlyStopChunkSize   = 8,
-    Action<int, int>? LevelProgress = null
+    Action<int, int>? LevelProgress = null,
+    MathFuzzy.Clustering.Results.SearchDiagnostics? Diagnostics = null,
+    bool ExactCoverPruning   = true
 )
 {
     /// <summary>Sentinel for <see cref="MaxIntersections"/>: w := 0 with automatic increment.</summary>
