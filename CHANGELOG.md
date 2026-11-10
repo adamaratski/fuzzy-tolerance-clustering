@@ -98,6 +98,12 @@ Desktop workbench
   shows the membership matrix, the result line the pair (α, β). Running an intuitionistic
   algorithm on ordinary data, or an ordinary algorithm on intuitionistic data, gives a
   message that says what to open or choose.
+- D-AFC-TO, D-AFC-TO(α) and D-PAFC-TO in the category *Prototype-based* (parameter *Opening*),
+  D-AFC-PS(c) in *Relational* and D-AIFC-PS(c) in *Intuitionistic* (field *Labelled objects*,
+  `object:y` or `object:y:f`).
+- *Open data → Interval-valued data…*, *Fuzzy-number data…*, *Three-way data…* and *Asymmetric
+  proximity matrix…*: the tolerance is built on loading with the default settings of the
+  command-line tool, and every algorithm that accepts a tolerance matrix runs on it.
 
 Data files
 - `hung_ifs_membership.csv`, `hung_ifs_nonmembership.csv`, `cars5_ifs.csv`, `cars10_ifs.csv`.
