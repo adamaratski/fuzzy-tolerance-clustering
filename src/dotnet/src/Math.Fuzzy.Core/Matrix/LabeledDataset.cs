@@ -10,7 +10,7 @@ public sealed class LabeledDataset
 {
     private static readonly HashSet<string> LabelColumnNames =
         new(StringComparer.OrdinalIgnoreCase)
-        { "class", "label", "labels", "type", "species", "variety", "target", "category" };
+        { "class", "label", "labels", "type", "species", "variety", "target", "category", "group" };
 
     public RawDataMatrix Data       { get; }
     public int[]         TrueLabels { get; }          // 0-based class index per row

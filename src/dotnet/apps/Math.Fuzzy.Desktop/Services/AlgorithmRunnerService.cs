@@ -24,7 +24,8 @@ public sealed class AlgorithmRunnerService(IWorkspaceService workspace) : IAlgor
             LevelProgress:    (done, total) => progress.Report(new(
                 $"Level scan · {done:N0} / {total:N0} levels",
                 total > 0 ? (double)done / total : null)),
-            MaxIntersections: options.MaxIntersections);
+            MaxIntersections: options.MaxIntersections,
+            MinClusterPower:  options.MinClusterPower);
 
         var results = await Task.Run(
             () => AlgorithmFactory.Run(options.Algorithm, data, algOptions, ct),

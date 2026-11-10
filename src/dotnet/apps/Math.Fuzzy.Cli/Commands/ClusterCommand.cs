@@ -20,10 +20,11 @@ public static class ClusterCommand
         var minkP     = new Option<double>("--minkowski-p") { Description = "Minkowski order p (used when --distance minkowski)", DefaultValueFactory = _ => 3.0 };
         var criterion = new Option<string>("--criterion") { Description = "Quality criterion: f1 | f2", DefaultValueFactory = _ => "f1" };
         var inters    = new Option<int>("--intersections") { Description = "D-PAFC: max objects in intersection areas (0 = fully separated clusters)", DefaultValueFactory = _ => 0 };
+        var rules     = new Option<FileInfo?>("--rules") { Description = "Write the fuzzy inference system generated from the best allotment (JSON, readable by `mfuzzy infer`)" };
         var output    = new Option<FileInfo?>("--output") { Description = "Output file (JSON). Default: stdout" };
         var format    = new Option<string>("--format") { Description = "Output format: table | json | csv", DefaultValueFactory = _ => "table" };
 
-        var cmd = new Command("cluster", "Run a fuzzy clustering algorithm") { algorithm, input, clusters, alpha, distance, norm, taga, minkP, criterion, output, format, accuracy, inters };
+        var cmd = new Command("cluster", "Run a fuzzy clustering algorithm") { algorithm, input, clusters, alpha, distance, norm, taga, minkP, criterion, output, format, accuracy, inters, rules };
         cmd.SetAction((parse, ct) => ClusterHandler.Run(
             parse.GetValue(algorithm)!,
             parse.GetValue(input)!,
@@ -37,7 +38,8 @@ public static class ClusterCommand
             parse.GetValue(output),
             parse.GetValue(format)!,
             parse.GetValue(accuracy),
-            parse.GetValue(inters)));
+            parse.GetValue(inters),
+            parse.GetValue(rules)));
         return cmd;
     }
 }

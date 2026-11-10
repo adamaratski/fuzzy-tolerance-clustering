@@ -1,6 +1,6 @@
-﻿# Math.Fuzzy — Clustering Datasets
+# Math.Fuzzy — Clustering Datasets
 
-All files are comma-separated CSV with header row. Numeric features only in base versions. Files ending `_labeled.csv` include a `class` or `type` column for validation. Files of type *relational* contain a fuzzy similarity matrix ($n \times n$) and are used directly as input to relational algorithms (D-AFC, D-PAFC, D-AFC-PS).
+All files are comma-separated CSV with header row. Numeric features only in base versions. Files ending `_labeled.csv` include one label column (`class`, `type`, `variety`, `species` or `group`) for validation. Files of type *relational* contain a fuzzy similarity matrix ($n \times n$) and are used directly as input to relational algorithms (D-AFC, D-PAFC, D-AFC-PS).
 
 ## Real-world datasets (UCI Machine Learning Repository)
 
@@ -32,7 +32,7 @@ Used in the original AFC algorithm papers.
 
 ## Classic relational benchmarks (similarity matrix data)
 
-These files contain an $n \times n$ fuzzy similarity matrix and are used as **direct input** to relational algorithms (D-AFC, D-PAFC, D-AFC-PS) without any distance computation step.
+These files contain an $n \times n$ fuzzy similarity matrix and are the **direct input** of the relational algorithms (D-AFC, D-PAFC), without any distance computation step. In the library a matrix is passed to the algorithm classes (`FuzzyToleranceMatrix.FromCsv`), and `mfuzzy matrix closure` reads it; `mfuzzy cluster` and the workbench currently run on attribute data only.
 
 | File | n | Clusters | Source |
 |---|---|---|---|
@@ -44,7 +44,7 @@ These files contain an $n \times n$ fuzzy similarity matrix and are used as **di
 
 | Algorithm | Recommended datasets |
 |---|---|
-| D-AFC(c), D-AFC-PS | `windham_relational`, `tamura_5`, `dave_sen_fruit` |
+| D-AFC(c) | `windham_relational`, `tamura_5`, `dave_sen_fruit` |
 | D-PAFC | `windham_relational`, `sneath_sokal` (build T from features) |
 | D-AFC-TC, D-AFC-TC(α) | `yang_wu`, `looney`, `iris`, `seeds` |
 | D-PAFC-TC (outlier detection) | `rehms`, `iris` |
@@ -57,8 +57,7 @@ These files contain an $n \times n$ fuzzy similarity matrix and are used as **di
 All files below follow the same convention: `<name>.csv` holds numeric features only,
 `<name>_labeled.csv` adds one trailing `class` column (or `species`). Secondary ground
 truths are provided as separate `*_labeled.csv` files so that every labeled file has exactly
-one label column. Source files, their SHA-256 hashes and the conversion script are recorded in
-`docs/datasets-candidates.md`.
+one label column.
 
 ### Real-world data
 

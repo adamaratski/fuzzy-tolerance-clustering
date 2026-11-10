@@ -3,7 +3,11 @@ command-line tool and writes results/reproduction/<run>.json plus summary.md.
 
 Usage (from the repository root, after `dotnet build src/dotnet/Math.Fuzzy.slnx -c Release`):
     python results/reproduce.py [--only <substring>] [--rerun]
-Existing JSON outputs are reused unless --rerun is given.
+Existing JSON outputs are reused unless --rerun is given. With --only the selected rows are
+printed and summary.md is left as it is. Python 3.8 or later.
+
+Each JSON keeps the ten top-ranked allotments of its run (every level for H-AFC-TC) in
+compact form; `resultCount` records how many the tool returned.
 """
 import json, subprocess, sys, time
 from pathlib import Path
@@ -13,6 +17,7 @@ cli = root / "src/dotnet/apps/Math.Fuzzy.Cli/bin/Release/net10.0/mfuzzy.exe"
 out_dir = root / "results/reproduction"
 out_dir.mkdir(exist_ok=True)
 only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
+KEPT_RESULTS = 10
 
 # (run name, dataset file, algorithm, extra CLI options) — the settings of
 # tbl-reproduction (unitarisation, full precision) and tbl-reproduction-iris /
@@ -74,7 +79,13 @@ for name, dataset, algorithm, options in runs:
             print(name, "FAILED", completed.stderr.strip()[:200]); continue
     data = json.loads(target.read_text(encoding="utf-8-sig"))
     # the tool writes {"results", "validation"} for labelled data and a bare list otherwise
-    results = data["results"] if isinstance(data, dict) else data
+    if not isinstance(data, dict): data = {"results": data}
+    results = data["results"]
+    if "resultCount" not in data:
+        # archive form: the ten best allotments (the whole hierarchy for H-AFC-TC), compact JSON
+        data["resultCount"] = len(results)
+        if algorithm != "hafc-tc": data["results"] = results = results[:KEPT_RESULTS]
+        target.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     if algorithm == "hafc-tc":
         # the hierarchy: report the level with three clusters as the book does
         results = [r for r in results if r["clusterCount"] == 3] or results
@@ -86,13 +97,15 @@ for name, dataset, algorithm, options in runs:
     for cluster in best["clusters"]:
         for o in cluster: covered[o] = covered.get(o, 0) + 1
     overlap = sum(1 for count in covered.values() if count > 1)
-    validation = data.get("validation") if isinstance(data, dict) else None
+    validation = data.get("validation")
     purity = f"{validation['purity']:.3f}" if validation else "—"
     ari = f"{validation['adjustedRandIndex']:.3f}" if validation else "—"
     nmi = f"{validation['nmi']:.3f}" if validation else "—"
     misclassified = f"{round(objects * (1 - validation['purity']))}" if validation else "—"
+    elapsed_text = "—" if elapsed != elapsed else f"{elapsed:.1f}"
     lines.append(f"| {name} | {objects} | {best['clusterCount']} | {best['alpha']:.5f} | {best['score']:.5f} | "
-                 f"{[c + 1 for c in best['centers']]} | {sizes} | {overlap} | {purity} | {ari} | {nmi} | {misclassified} | {"—" if elapsed != elapsed else f"{elapsed:.1f}"} |")
+                 f"{[c + 1 for c in best['centers']]} | {sizes} | {overlap} | {purity} | {ari} | {nmi} | {misclassified} | {elapsed_text} |")
     print(lines[-1])
 
-(out_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+if only is None:
+    (out_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

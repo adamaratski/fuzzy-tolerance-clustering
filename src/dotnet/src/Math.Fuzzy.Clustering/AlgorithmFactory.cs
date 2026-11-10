@@ -30,14 +30,10 @@ public static class AlgorithmFactory
         AlgorithmOptions options,
         CancellationToken ct = default)
     {
-        var builder   = BuildToleranceBuilder(options);
+        var builder   = CreateToleranceBuilder(options);
         var closure   = new MaxMinTransitiveClosure();
         var taga      = BuildTaga(options.TagaOperator);
-        var criterion = options.Criterion.ToLowerInvariant() switch
-        {
-            "f2" => (ICriterion)F2Criterion.Instance,
-            _    => F1Criterion.Instance
-        };
+        var criterion = CreateCriterion(options.Criterion);
 
         return algorithm.ToLowerInvariant().Trim() switch
         {
@@ -71,14 +67,8 @@ public static class AlgorithmFactory
             "hafc-tc" =>
                 new HAfcTcAlgorithm(builder, closure, criterion).Run(data, ct).Levels,
 
-            "dpafc-dr" =>
-                RunDr(new DPafcDrReducer(builder, criterion), data, builder, options, criterion, ct),
-
-            "dpafc-tc-dr" =>
-                RunDr(new DPafcTcDrReducer(builder, closure, criterion), data, builder, options, criterion, ct),
-
-            "dpafc-taga-dr" =>
-                RunDr(new DPafcTagaDrReducer(builder, taga, criterion), data, builder, options, criterion, ct),
+            "dpafc-dr" or "dpafc-tc-dr" or "dpafc-taga-dr" =>
+                RunDr(CreateReducer(algorithm, options), data, builder, options, criterion, ct),
 
             _ => throw new ArgumentException(
                      $"Unknown algorithm key: '{algorithm}'. " +
@@ -153,39 +143,76 @@ public static class AlgorithmFactory
     private static FuzzyToleranceMatrix BuildMatrix(RawDataMatrix data, ToleranceMatrixBuilder builder)
         => builder.Build(data);
 
-    private static ToleranceMatrixBuilder BuildToleranceBuilder(AlgorithmOptions options)
+    /// <summary>
+    /// The tolerance-matrix builder (distance, normalisation, accuracy threshold) named by the options.
+    /// An unknown distance or normalisation name is an error, not a silent default.
+    /// </summary>
+    public static ToleranceMatrixBuilder CreateToleranceBuilder(AlgorithmOptions options)
     {
-        IDistance distance = options.DistanceOverride ?? options.Distance.ToLowerInvariant() switch
+        IDistance distance = options.DistanceOverride ?? options.Distance.ToLowerInvariant().Trim() switch
         {
+            "euclidean" => EuclideanDistance.Instance,
             "hamming"   => HammingDistance.Instance,
             "squared-euclidean" or "squared" or "euclidean2" => SquaredEuclideanDistance.Instance,
             "manhattan" => ManhattanDistance.Instance,
             "chebyshev" => ChebyshevDistance.Instance,
             "cosine"    => CosineDistance.Instance,
             "minkowski" => new MinkowskiDistance(options.MinkowskiP),
-            _           => EuclideanDistance.Instance
+            _ => throw new ArgumentException(
+                     $"Unknown distance: '{options.Distance}'. Valid names: euclidean, squared-euclidean, " +
+                     "hamming, manhattan, chebyshev, minkowski, cosine")
         };
 
-        INormalization norm = options.Normalization.ToLowerInvariant() switch
+        INormalization norm = options.Normalization.ToLowerInvariant().Trim() switch
         {
-            "max"  => MaxNormalization.Instance,
-            "none" => NoNormalization.Instance,
-            _      => MinMaxNormalization.Instance
+            "minmax" => MinMaxNormalization.Instance,
+            "max"    => MaxNormalization.Instance,
+            "none"   => NoNormalization.Instance,
+            _ => throw new ArgumentException(
+                     $"Unknown normalisation: '{options.Normalization}'. Valid names: minmax, max, none")
         };
 
         return new ToleranceMatrixBuilder(distance, norm, options.Accuracy);
     }
 
+    /// <summary>The criterion named <c>f1</c> or <c>f2</c>.</summary>
+    public static ICriterion CreateCriterion(string name) => name.ToLowerInvariant().Trim() switch
+    {
+        "f1" => F1Criterion.Instance,
+        "f2" => F2Criterion.Instance,
+        _ => throw new ArgumentException($"Unknown criterion: '{name}'. Valid names: f1, f2")
+    };
+
+    /// <summary>
+    /// The attribute-space reducer for <c>dpafc-dr</c>, <c>dpafc-tc-dr</c> or <c>dpafc-taga-dr</c>
+    /// (the short forms <c>dpafc</c>, <c>dpafc-tc</c>, <c>dpafc-taga</c> are accepted as well).
+    /// </summary>
+    public static IDimensionReducer CreateReducer(string method, AlgorithmOptions options)
+    {
+        var builder   = CreateToleranceBuilder(options);
+        var criterion = CreateCriterion(options.Criterion);
+        return method.ToLowerInvariant().Trim() switch
+        {
+            "dpafc-dr" or "dpafc"           => new DPafcDrReducer(builder, criterion),
+            "dpafc-tc-dr" or "dpafc-tc"     => new DPafcTcDrReducer(builder, new MaxMinTransitiveClosure(), criterion),
+            "dpafc-taga-dr" or "dpafc-taga" => new DPafcTagaDrReducer(builder, BuildTaga(options.TagaOperator), criterion),
+            _ => throw new ArgumentException(
+                     $"Unknown reduction method: '{method}'. Valid names: dpafc, dpafc-tc, dpafc-taga")
+        };
+    }
+
     private static TAGAProcessor BuildTaga(string? operatorName)
     {
-        ITAGAOperator op = operatorName?.ToLowerInvariant() switch
+        ITAGAOperator op = operatorName?.ToLowerInvariant().Trim() switch
         {
-            "maximum" or "max" => MaximumTAGA.Instance,
-            "minimum" or "min" => MinimumTAGA.Instance,
-            "median"           => MedianTAGA.Instance,
+            null or "" or "mean" => MeanTAGA.Instance,
+            "maximum" or "max"   => MaximumTAGA.Instance,
+            "minimum" or "min"   => MinimumTAGA.Instance,
+            "median"             => MedianTAGA.Instance,
             "umedian" or "uppermedian" => UpperMedianTAGA.Instance,
             "dmedian" or "lowermedian" => LowerMedianTAGA.Instance,
-            _                  => MeanTAGA.Instance
+            _ => throw new ArgumentException(
+                     $"Unknown TAGA operator: '{operatorName}'. Valid names: max, min, mean, median, umedian, dmedian")
         };
         return new TAGAProcessor(op);
     }

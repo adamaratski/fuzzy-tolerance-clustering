@@ -80,7 +80,7 @@ public sealed class WorkspaceService : IWorkspaceService
     }
 
     private static readonly HashSet<string> LabelColumnKeywords =
-        new(StringComparer.OrdinalIgnoreCase) { "class", "label", "target", "species", "type", "category", "y" };
+        new(StringComparer.OrdinalIgnoreCase) { "class", "label", "labels", "type", "species", "variety", "target", "category", "group" };
 
     /// <summary>
     /// Header names of the numeric feature columns, in the order the loaders keep them.

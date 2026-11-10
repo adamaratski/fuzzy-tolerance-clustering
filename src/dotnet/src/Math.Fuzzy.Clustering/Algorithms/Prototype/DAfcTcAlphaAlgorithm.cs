@@ -34,7 +34,7 @@ public sealed class DAfcTcAlphaAlgorithm(
         if (leapAlpha is not double effectiveAlpha) return [];
         if (effectiveAlpha < userAlpha)
         {
-            var constrained = allAlphas.Where(a => a > userAlpha).ToArray(); // still descending
+            var constrained = allAlphas.Where(a => a >= userAlpha).ToArray(); // still descending
             if (LeapHeuristicAlphaSelector.SelectFrom(constrained) is not double constrainedAlpha)
                 return []; // userAlpha above every level in T̃
             effectiveAlpha = constrainedAlpha;

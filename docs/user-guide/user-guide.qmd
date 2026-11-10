@@ -185,7 +185,8 @@ The lower part depends on the algorithm:
 
 * **Clusters c** (D-AFC): the number of clusters, an integer of at least 2.
 * **α levels** (D-AFC): *All levels* searches every distinct level of $T$;
-  *Manual* searches only the level nearest to the **α\* threshold** entered below.
+  *Manual* searches a single level: the highest level of $T$ that does not exceed
+  the **α\* threshold** entered below.
 * **α\* threshold** (D-AFC-TC($\alpha$)): the lowest admissible level.
 * **Intersections w** (D-PAFC): the number of objects allowed to lie in more
   than one cluster; 0 asks for fully separated clusters.
@@ -292,16 +293,17 @@ data set the colours refer to.
 # Export
 
 *Export → Results as JSON…* writes every allotment of the last run with its
-level, criterion, centres, clusters and the validity indices; the structure is the
-same as the JSON output of the command-line tool. *Export → Results as CSV…*
-writes one row per allotment for spreadsheets.
+level, criterion, centres and clusters; object numbers are 1-based, as everywhere
+in the workbench. *Export → Results as CSV…* writes one row per allotment for
+spreadsheets. The command-line tool writes the same allotments in its own JSON
+layout, with 0-based object numbers and with the validity indices.
 
 # Theory pages
 
 ## Fuzzy sets
 
 A small laboratory for membership functions. *Shapes* draws one fuzzy set of a
-chosen shape (triangular, trapezoidal, Gaussian and others); the parameters can be
+chosen shape (triangular, trapezoidal or Gaussian); the parameters can be
 typed or the square handles dragged on the plot, and the panel reports the
 height, support, core, α-cut, crossover points, cardinality and centroid.
 *Operations* combines two sets with a t-norm, an s-norm or a complement, with
@@ -321,9 +323,11 @@ The inference page generates a fuzzy rule base from a clustering solution and
 lets you experiment with it.
 
 * **Solution** picks an allotment of the last run; **Rule base** the kind of
-  system (a Mamdani system with one output per cluster, a Takagi–Sugeno system
-  or a classifier whose consequents are the class labels); **MF shape** the
-  shape of the terms. *Regenerate* builds the rules.
+  system: a Mamdani system with one output per cluster (the construction of the
+  book), a classifier whose consequents are the class labels, a Mamdani
+  regression system, or a Takagi–Sugeno system of order 0 or 1 (the last three
+  predict the column chosen in **Target**); **MF shape** the shape of the terms.
+  *Regenerate* builds the rules.
 * **Rules.** One rule per cluster. Each rule can be switched off, its terms and
   weight changed; the bar at the right shows its firing strength for the current
   input.
@@ -337,14 +341,16 @@ lets you experiment with it.
   its confusion matrix.
 
 The rule base can be exported as JSON or as a MATLAB Fuzzy Logic Toolbox file
-(`.fis`) and imported back.
+(`.fis`); a JSON file can be imported back, and evaluated without the workbench
+by `mfuzzy infer`.
 
 ![The inference page with a rule base generated from a D-AFC-TC solution.](images/12-inference.png){width=100%}
 
 # Settings
 
 The page sets the defaults for the number of results kept and the minimal size of
-a cluster, and shows the versions of the components.
+a cluster (applied by the relational algorithms D-AFC and D-PAFC), and shows the
+versions of the components.
 
 ![The Settings page.](images/13-settings.png){width=100%}
 
@@ -370,7 +376,7 @@ a cluster, and shows the versions of the components.
 
 # The command-line tool {#sec-cli}
 
-Everything the workbench computes can be reproduced from a terminal with the
+The clustering runs of the workbench can be reproduced from a terminal with the
 tool `mfuzzy` of the same repository, for example
 
 ```

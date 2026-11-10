@@ -13,7 +13,8 @@ public sealed record AlgorithmRunOptions(
     string Criterion = "f1",
     int MaxResults = 200,
     double? Accuracy = null,
-    int MaxIntersections = 0
+    int MaxIntersections = 0,
+    int MinClusterPower = 1
 );
 
 /// <summary>Structured run progress: phase text plus optional 0..1 completion fraction.</summary>

@@ -4,6 +4,8 @@ using MathFuzzy.Clustering;
 using MathFuzzy.Clustering.Results;
 using MathFuzzy.Clustering.Validation;
 using MathFuzzy.Core.Matrix;
+using MathFuzzy.Inference.Generation;
+using MathFuzzy.Inference.Serialization;
 
 namespace MathFuzzy.Cli.Commands;
 
@@ -13,8 +15,15 @@ internal static class ClusterHandler
         string algorithm, FileInfo input, int? clusters, double? alpha,
         string distance, string normalize, string taga, double minkowskiP,
         string criterion, FileInfo? output, string format, double? accuracy = null,
-        int intersections = 0)
+        int intersections = 0, FileInfo? rules = null)
     {
+        if (format.ToLowerInvariant() is not ("table" or "json" or "csv"))
+        {
+            await Console.Error.WriteLineAsync($"Unknown format: '{format}'. Valid names: table, json, csv");
+            Environment.Exit(2);
+            return;
+        }
+
         // Try to load as labeled dataset first; fall back to plain data
         var labeled = LabeledDataset.TryFromCsv(input.FullName);
         var data    = labeled?.Data ?? RawDataMatrix.FromCsv(input.FullName);
@@ -60,9 +69,10 @@ internal static class ClusterHandler
 
         string rendered = format.ToLowerInvariant() switch
         {
-            "json" => RenderJson(results, validation),
-            "csv"  => RenderCsv(results),
-            _      => RenderTable(results, validation)
+            "json"  => RenderJson(results, validation),
+            "csv"   => RenderCsv(results),
+            "table" => RenderTable(results, validation),
+            _ => throw new ArgumentException($"Unknown format: '{format}'. Valid names: table, json, csv")
         };
 
         if (output is not null)
@@ -73,6 +83,14 @@ internal static class ClusterHandler
         else
         {
             await Console.Out.WriteAsync(rendered);
+        }
+
+        if (rules is not null)
+        {
+            // one rule per cluster of the best allotment, as in the workbench's Inference page
+            var system = ClusterRuleExtractor.Extract(data, results[0], new RuleExtractionOptions());
+            await File.WriteAllTextAsync(rules.FullName, FisJson.Serialize(system));
+            await Console.Error.WriteLineAsync($"Wrote the inference system ({system.Rules.Count} rules) to {rules.FullName}");
         }
     }
 

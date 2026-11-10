@@ -55,6 +55,40 @@ public class AlgorithmFactoryTests
     }
 
     [Theory]
+    [InlineData("distance", "squared_euclidean")]   // a typo of squared-euclidean must not fall back to euclidean
+    [InlineData("normalization", "maxx")]
+    [InlineData("criterion", "f3")]
+    [InlineData("taga", "average")]
+    public void Run_UnknownOptionValue_ThrowsInsteadOfUsingADefault(string option, string value)
+    {
+        var options = option switch
+        {
+            "distance"      => DefaultOptions with { Distance = value },
+            "normalization" => DefaultOptions with { Normalization = value },
+            "criterion"     => DefaultOptions with { Criterion = value },
+            _               => DefaultOptions with { TagaOperator = value }
+        };
+        Assert.Throws<ArgumentException>(() =>
+            AlgorithmFactory.Run("dafc-taga", TwoGroupData(), options, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void Run_DafcTcAlpha_AdmitsALevelEqualToTheThreshold()
+    {
+        var data = TwoGroupData();
+        var closure = new MathFuzzy.Core.Matrix.MaxMinTransitiveClosure()
+            .Compute(AlgorithmFactory.CreateToleranceBuilder(DefaultOptions).Build(data));
+        // the highest level of the closure: with the threshold set exactly to it, that level is the answer
+        double topLevel = closure.GetDistinctValues()[0];
+
+        var results = AlgorithmFactory.Run("dafc-tc-alpha", data, DefaultOptions with { UserAlpha = topLevel },
+                                           TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(results);
+        Assert.Equal(topLevel, results[0].Alpha);
+    }
+
+    [Theory]
     [InlineData("euclidean")]
     [InlineData("hamming")]
     public void Run_DistanceVariants_DoNotThrow(string distance)

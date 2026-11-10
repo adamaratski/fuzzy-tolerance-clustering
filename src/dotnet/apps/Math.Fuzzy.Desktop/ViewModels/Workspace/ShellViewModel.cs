@@ -275,7 +275,9 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (_workspace.RawData is null)
         {
-            StatusMessage = "Open a CSV file first.";
+            StatusMessage = ActiveWorkset?.IsMatrixInput == true
+                ? "This workset is a tolerance matrix: it can be inspected on the Tolerance tab, but the algorithms of this version run on attribute data (a CSV file)."
+                : "Open a CSV data file first.";
             return;
         }
 

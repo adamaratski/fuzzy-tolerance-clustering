@@ -189,7 +189,8 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
             Criterion:     SelectedCriterion is "F₂" or "F2" ? "f2" : "f1",
             MaxResults:    MaxResults,
             Accuracy:      accuracy,
-            MaxIntersections: ShowIntersections && int.TryParse(IntersectionsText, out int w) ? System.Math.Max(0, w) : 0
+            MaxIntersections: ShowIntersections && int.TryParse(IntersectionsText, out int w) ? System.Math.Max(0, w) : 0,
+            MinClusterPower:  System.Math.Max(1, MinClusterPower)   // the Settings page edits this value
         );
     }
 

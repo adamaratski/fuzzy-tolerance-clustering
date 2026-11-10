@@ -278,3 +278,44 @@ public class QuantizeTests
         Assert.Equal(0.3, t[1, 2], precision: 10);  // 1 − 0.66667 = 0.33333 → 0.3
     }
 }
+
+public class MaxNormalizationTests
+{
+    [Fact]
+    public void Apply_DividesByLargestAbsoluteValue_SoNegativeColumnsAreKept()
+    {
+        var data = new RawDataMatrix(2, 2);
+        data[0, 0] = 2;   data[1, 0] = 4;     // non-negative column: v / max
+        data[0, 1] = -10; data[1, 1] = -1;    // negative column: v / max|v|, not zeroed
+
+        var normalised = MaxNormalization.Instance.Apply(data);
+
+        Assert.Equal(0.5, normalised[0, 0], precision: 12);
+        Assert.Equal(1.0, normalised[1, 0], precision: 12);
+        Assert.Equal(-1.0, normalised[0, 1], precision: 12);
+        Assert.Equal(-0.1, normalised[1, 1], precision: 12);
+    }
+}
+
+public class LabeledDatasetTests
+{
+    [Theory]
+    [InlineData("class")]
+    [InlineData("group")]
+    [InlineData("variety")]
+    public void TryFromCsv_RecognisesANumericLabelColumnByItsHeader(string labelHeader)
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"labelled-{Guid.NewGuid():N}.csv");
+        File.WriteAllText(path, $"x,y,{labelHeader}\n1,2,1\n1.5,2.5,1\n8,9,2\n");
+        try
+        {
+            var dataset = LabeledDataset.TryFromCsv(path);
+
+            Assert.NotNull(dataset);
+            Assert.Equal(2, dataset.Data.Cols);       // the label column is not an attribute
+            Assert.Equal(2, dataset.ClassCount);
+            Assert.Equal(new[] { 0, 0, 1 }, dataset.TrueLabels);
+        }
+        finally { File.Delete(path); }
+    }
+}

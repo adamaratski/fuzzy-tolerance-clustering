@@ -98,16 +98,17 @@ dotnet run --project src/dotnet/apps/Math.Fuzzy.Cli -c Release -- cluster \
 | Command | Purpose |
 |---------|---------|
 | `cluster` | run a clustering algorithm |
-| `matrix build`, `matrix closure` | build $T$ from data; compute $\widetilde{T}$ |
-| `reduce` | attribute selection (`--method dpafc \| dpafc-tc \| dpafc-taga`) |
-| `infer` | evaluate a Mamdani or Sugeno system (`--system rules.json --input 5.1,3.5,1.4,0.2`) |
+| `matrix build` | build the tolerance matrix $T$ of a data file and write it as CSV (`--distance`, `--normalize`, `--accuracy`, `--output`) |
+| `matrix closure` | read an $n\times n$ tolerance matrix and write its max-min transitive closure $\widetilde{T}$ |
+| `reduce` | attribute selection (`--method dpafc \| dpafc-tc \| dpafc-taga`): prints the selected attributes and, with `--output`, writes the reduced data |
+| `infer` | evaluate an inference system for one input vector (`--system rules.json --input 5.1,3.5,1.4,0.2`); the JSON is written by `cluster --rules` or exported by the workbench |
 
 Options of `cluster`:
 
 | Option | Values | Default |
 |--------|--------|---------|
 | `--algorithm` | see the algorithm table | — |
-| `--input` | CSV with data (a `class` column is detected and used for validity indices) or an $n\times n$ tolerance matrix | — |
+| `--input` | CSV with attribute data. A label column — a text column, or a numeric column headed `class`, `label`, `type`, `species`, `variety`, `target`, `category` or `group` — is left out of the data and used for the validity indices | — |
 | `--clusters` | $c$ for D-AFC(c) and fixed-$c$ D-AFC-TC | auto |
 | `--alpha` | $\hat{\alpha}\in(0,1)$ for `dafc-tc-alpha`; a single level for `dafc` | — |
 | `--intersections` | $w\ge 0$ for `dpafc` | 0 |
@@ -118,6 +119,7 @@ Options of `cluster`:
 | `--taga` | `max`, `min`, `mean`, `median`, `umedian`, `dmedian` | `mean` |
 | `--criterion` | `f1`, `f2` | `f1` |
 | `--format`, `--output` | `table`, `json`, `csv`; output file | `table`, stdout |
+| `--rules` | file for the fuzzy inference system generated from the best allotment (one Mamdani rule per cluster, JSON) | — |
 
 To reproduce the setting of the monograph, use `--distance squared-euclidean --normalize max --accuracy 0.00001`.
 
@@ -137,6 +139,22 @@ What it shows:
 - a 2-D scatter coloured by cluster or by class;
 - an inference-system page;
 - a CPU, memory and GPU monitor.
+
+Numbers are read and written with a decimal point on every system locale. An unknown
+algorithm, distance, normalisation, criterion or operator name is an error. Object
+numbers in the output are 0-based.
+
+### Reproducing the experiments of the book
+
+```bash
+python results/reproduce.py
+```
+
+The script (Python 3.8 or later, no packages) runs every row of the book's reproduction
+tables through `mfuzzy` and writes [`results/reproduction`](results/reproduction):
+one JSON per run and `summary.md`. Existing JSON files are reused; `--rerun` recomputes
+everything (the relational runs on a few hundred objects take minutes), and
+`--only <text>` runs the matching rows only.
 
 ### Benchmarks
 
@@ -163,7 +181,7 @@ addpath(fullfile(pwd, 'src', 'matlab'));
 X  = readmatrix('datasets/iris.csv');
 T  = vfc.build_tolerance_matrix(X, 'Distance', 'euclidean');
 Tc = vfc.max_min_closure(T);
-r  = vfc.dpafc_tc(Tc);
+r  = vfc.dpafc_tc(X);     % the closure-based functions take the data and build T and its closure themselves
 vfc.print_results(r);
 ```
 
