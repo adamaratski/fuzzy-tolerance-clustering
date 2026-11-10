@@ -45,11 +45,10 @@ public sealed partial class DataPanelViewModel : ObservableObject
 
         if (_workspace.ToleranceMatrix is { } tm)
         {
-            var distinct = new HashSet<double>();
-            for (int i = 0; i < tm.Size; i++)
-                for (int j = i + 1; j < tm.Size; j++)
-                    distinct.Add(System.Math.Round(tm[i, j], 6));
-            TLevels = distinct.Count;
+            // the levels as the algorithms count them (values that differ by rounding noise are one level)
+            var snapped = tm.Clone();
+            snapped.SnapLevels();
+            TLevels = snapped.GetDistinctValues().Count;
             TLevelsLabel = _workspace.ActiveWorkset?.ClosureApplied == true ? "T̃ levels" : "T levels";
         }
         else

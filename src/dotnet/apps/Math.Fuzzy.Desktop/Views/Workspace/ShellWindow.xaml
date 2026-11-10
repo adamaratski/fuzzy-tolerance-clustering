@@ -6,7 +6,7 @@
     xmlns:vm="clr-namespace:MathFuzzy.Desktop.ViewModels.Workspace"
     xmlns:pages="clr-namespace:MathFuzzy.Desktop.Views.Pages"
     xmlns:ctrl="clr-namespace:MathFuzzy.Desktop.Controls"
-    Title="Math.Fuzzy - Possibilistic Clustering Suite"
+    Title="Fuzzy Tolerance Clustering — Workbench"
     Width="1440" Height="860"
     MinWidth="1000" MinHeight="640"
     WindowStartupLocation="CenterScreen"
@@ -89,7 +89,7 @@
         <!-- TITLE BAR -->
         <Grid Grid.Row="0" Grid.ColumnSpan="3" Background="{StaticResource MantleBrush}">
             <!-- short title; the window title keeps the full name for the taskbar -->
-            <ui:TitleBar Title="Math.Fuzzy"/>
+            <ui:TitleBar Title="Fuzzy Tolerance Clustering"/>
         </Grid>
 
         <!-- LEFT NAV -->
@@ -442,9 +442,28 @@
                     <DockPanel Margin="0,8,0,6">
                         <ToggleButton DockPanel.Dock="Right"
                                       Style="{x:Null}" OverridesDefaultStyle="True"
+                                      IsChecked="{Binding ResourceMonitor.IsExpanded}"
+                                      Cursor="Hand" ToolTip="Show or hide the load of the processor, the memory and the graphics adapters"
+                                      AutomationProperties.Name="Show system monitor">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <TextBlock x:Name="Txt" Text="show" FontSize="10"
+                                               Foreground="{StaticResource AccentBrush}"
+                                               Background="Transparent"/>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Txt" Property="Text" Value="hide"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ToggleButton DockPanel.Dock="Right" Margin="0,0,10,0"
+                                      Style="{x:Null}" OverridesDefaultStyle="True"
                                       IsChecked="{Binding ResourceMonitor.IsPaused}"
                                       Cursor="Hand" ToolTip="Pause or resume sampling"
-                                      AutomationProperties.Name="Pause resource monitor">
+                                      AutomationProperties.Name="Pause resource monitor"
+                                      Visibility="{Binding ResourceMonitor.IsExpanded, Converter={StaticResource BoolToVisibility}}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
                                     <TextBlock x:Name="Txt" Text="pause" FontSize="10"
@@ -459,8 +478,14 @@
                             </ToggleButton.Template>
                         </ToggleButton>
                         <TextBlock Style="{StaticResource PanelSection}" Text="SYSTEM" Margin="0"/>
+                        <TextBlock Margin="10,0,0,0" FontSize="10.5" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Subtext0Brush}"
+                                   Text="{Binding ResourceMonitor.Summary}"
+                                   AutomationProperties.Name="System load"
+                                   Visibility="{Binding ResourceMonitor.IsExpanded, Converter={StaticResource InverseBoolToVisibility}}"/>
                     </DockPanel>
-                    <ItemsControl ItemsSource="{Binding ResourceMonitor.Meters}" Focusable="False">
+                    <ItemsControl ItemsSource="{Binding ResourceMonitor.Meters}" Focusable="False"
+                                  Visibility="{Binding ResourceMonitor.IsExpanded, Converter={StaticResource BoolToVisibility}}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="0,0,0,6"

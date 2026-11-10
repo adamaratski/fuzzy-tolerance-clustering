@@ -21,7 +21,7 @@
                     Visibility="{Binding ShowVariants, Converter={StaticResource BoolToVisibility}}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="74"/>
+                    <ColumnDefinition Width="92"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
@@ -83,7 +83,7 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
             </Grid>
-            <TextBlock Margin="74,4,0,0" FontSize="11" TextWrapping="Wrap"
+            <TextBlock Margin="92,4,0,0" FontSize="11" TextWrapping="Wrap"
                        Foreground="{StaticResource Subtext0Brush}"
                        Text="{Binding VariantDescription}"/>
         </StackPanel>
@@ -92,7 +92,7 @@
         <!-- distance, normalisation, criterion and accuracy apply to ordinary attribute data only -->
         <Grid Visibility="{Binding UsesAttributeDistance, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
@@ -143,7 +143,7 @@
             <TextBlock Grid.Row="6" Grid.Column="0"
                        Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                <Run Text="Accuracy"/><LineBreak/><Run Text="ε"/>
+                <Run Text="Accuracy ε"/>
             </TextBlock>
             <TextBox Grid.Row="6" Grid.Column="1"
                      AutomationProperties.Name="Accuracy epsilon"
@@ -154,7 +154,7 @@
         </Grid>
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0"
@@ -176,7 +176,7 @@
                 <DataTemplate DataType="{x:Type vm:MinkowskiParameterViewModel}">
                     <Grid Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="74"/>
+                            <ColumnDefinition Width="92"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
@@ -193,7 +193,7 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowClusterCount, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
@@ -209,7 +209,7 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding IsIntuitionistic, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
@@ -219,7 +219,7 @@
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                <Run Text="Scan"/><LineBreak/><Run Text="order"/>
+                <Run Text="Scan order"/>
             </TextBlock>
             <ComboBox Grid.Row="0" Grid.Column="1"
                       AutomationProperties.Name="Scan order"
@@ -239,12 +239,12 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowMaxClusterSize, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                <Run Text="Max size"/><LineBreak/><Run Text="u"/>
+                <Run Text="Max size u"/>
             </TextBlock>
             <TextBox Grid.Column="1"
                      AutomationProperties.Name="Max cluster size u"
@@ -257,12 +257,12 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowIntersections, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                <Run Text="Intersec-"/><LineBreak/><Run Text="tions w"/>
+                <Run Text="Intersections w"/>
             </TextBlock>
             <TextBox Grid.Column="1"
                      AutomationProperties.Name="Intersections w"
@@ -275,12 +275,12 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowAlphaSelector, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                <Run Text="α"/><LineBreak/><Run Text="levels"/>
+                <Run Text="α levels"/>
             </TextBlock>
             <ComboBox Grid.Column="1"
                       AutomationProperties.Name="Alpha levels"
@@ -293,12 +293,12 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowTagaOperator, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                <Run Text="TAGA"/><LineBreak/><Run Text="operator"/>
+                <Run Text="TAGA operator"/>
             </TextBlock>
             <ComboBox Grid.Column="1"
                       AutomationProperties.Name="TAGA operator"
@@ -311,7 +311,7 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowLabels, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
@@ -329,7 +329,7 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowOpening, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
@@ -345,12 +345,12 @@
         <Grid Margin="0,10,0,0"
               Visibility="{Binding ShowUserAlpha, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="92"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource ParamLabel}"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                <Run Text="α*"/><LineBreak/><Run Text="threshold"/>
+                <Run Text="α* threshold"/>
             </TextBlock>
             <TextBox Grid.Column="1"
                      AutomationProperties.Name="Alpha threshold"
@@ -360,11 +360,22 @@
         </Grid>
 
         <!-- Parameter problems are shown here, next to the fields, before Run is pressed -->
+        <!-- a hint on what the algorithm needs; an error only after Run was pressed without it -->
         <TextBlock Margin="0,10,0,0" FontSize="11.5" TextWrapping="Wrap"
-                   Foreground="{StaticResource CoralBrush}"
-                   AutomationProperties.Name="Parameter error"
+                   AutomationProperties.Name="Parameter hint"
                    Text="{Binding ValidationError}"
-                   Visibility="{Binding ValidationError, Converter={StaticResource StringToVisibility}}"/>
+                   Visibility="{Binding ValidationError, Converter={StaticResource StringToVisibility}}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="{StaticResource Subtext0Brush}"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ProblemIsError}" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource CoralBrush}"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
 
     </StackPanel>
 </UserControl>

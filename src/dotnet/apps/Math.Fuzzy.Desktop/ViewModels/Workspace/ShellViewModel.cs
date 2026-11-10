@@ -66,7 +66,7 @@ public sealed partial class ShellViewModel : ObservableObject
         "mf"        => "Fuzzy sets",
         "fis"       => "Inference (FIS)",
         "settings"  => "Settings",
-        _           => "Fuzzy Clustering",
+        _           => "Clustering",
     };
 
     public bool IsDashboard => CurrentPage == "dashboard";
@@ -152,6 +152,11 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             if (ws.ClosureApplied) _resultsPanel.ToleranceMatrixTab.UpdateClosure(MatrixTo2D(tm));
             else                   _resultsPanel.ToleranceMatrixTab.Update(MatrixTo2D(tm));
+        }
+        else if (ws.RawData is not null && !IsBusy)
+        {
+            // attribute data that were never run: show T for the current distance and normalisation
+            _ = ShowToleranceOfActiveWorksetAsync();
         }
 
         if (ws.Results.Count > 0)
@@ -393,7 +398,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
         if (AlgorithmPanel.ValidationError is { } invalid)
         {
-            StatusMessage = invalid;   // parameter problems are reported inline, not as an error dialog
+            AlgorithmPanel.MarkRunAttempt();   // the hint under the parameters turns into an error
+            StatusMessage = invalid;           // parameter problems are reported inline, not as an error dialog
             return;
         }
 
@@ -683,6 +689,20 @@ public sealed partial class ShellViewModel : ObservableObject
     private const int MaxHeatmapSize = 1200;
 
     /// <summary>Shows the T and T̃ actually used by the run (same distance, normalisation, ε).</summary>
+    /// <summary>Builds and shows the tolerance of the active attribute data; a failure only leaves the tab empty.</summary>
+    private async Task ShowToleranceOfActiveWorksetAsync()
+    {
+        try
+        {
+            await RefreshToleranceTabAsync(AlgorithmPanel.BuildOptions());
+            DataInfo = _workspace.ActiveWorkset?.Meta ?? DataInfo;
+        }
+        catch (Exception)
+        {
+            // for example a distance whose parameter is not set yet; Run reports such problems
+        }
+    }
+
     private async Task RefreshToleranceTabAsync(AlgorithmRunOptions options)
     {
         if (_workspace.ActiveWorkset is not { RawData: { } raw } ws || raw.Rows > MaxHeatmapSize) return;

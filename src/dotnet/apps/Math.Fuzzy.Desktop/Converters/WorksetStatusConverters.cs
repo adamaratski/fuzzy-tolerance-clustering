@@ -20,7 +20,7 @@ public sealed class WorksetStatusToBrushConverter : IValueConverter
         WorksetStatus.Done    => new SolidColorBrush(Color.FromRgb(0xEA, 0xF3, 0xDE)),
         WorksetStatus.Running => new SolidColorBrush(Color.FromRgb(0xFA, 0xEE, 0xDA)),
         WorksetStatus.Error   => new SolidColorBrush(Color.FromRgb(0xFC, 0xEB, 0xEB)),
-        _                     => new SolidColorBrush(Color.FromRgb(0xF1, 0xEF, 0xE8)),
+        _                     => new SolidColorBrush(Color.FromRgb(0xE4, 0xE1, 0xD7)),   // darker than the selected card
     };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -89,8 +89,8 @@ The window has four areas (see the figure above).
   Rand index (the last two only when the data set has class labels).
 * **Right panel.** The parameters of the selected algorithm (@sec-algorithms),
   the progress of the current run, a summary of the active data set and the
-  *System* monitor with the load of the processor, the memory and the graphics
-  adapters. The monitor can be paused with the small link in its corner.
+  *System* line with the load of the processor and the memory; *show* opens the
+  monitor with the graphics adapters, which can be paused with the link next to it.
 
 The status bar at the bottom reports what happened last: a loaded file, the
 result of a run with its validity indices, or the reason why a run did not start.
@@ -229,7 +229,7 @@ The blue chip at the top of the panel always shows the selected algorithm.
 
 ![The prototype-based category with its *Variant* box (the screenshot shows version 1.0; version 1.1 adds D-AFC-TAGA(α) to the list).](images/19-prototype-variants.png){width=100%}
 
-![The relational category with D-AFC selected; the fields *Clusters c* and *α levels* belong to this algorithm. Until *c* is entered the panel reports the missing parameter in red.](images/08-relational.png){width=100%}
+![The relational category with D-AFC selected; the fields *Clusters c* and *α levels* belong to this algorithm. Until *c* is entered the panel says which parameter is missing; the screenshot shows version 1.0, where the message was red from the start.](images/08-relational.png){width=100%}
 
 ![D-PAFC does not need *c*; instead the field *Intersections w* sets how many objects may belong to more than one cluster.](images/14-relational-dpafc.png){width=100%}
 
@@ -313,8 +313,9 @@ bound $w$. For *order-free* the pair is the one of the allotment itself: its lea
 membership degree and its largest non-membership degree; the status bar shows the same
 pair.
 
-A parameter that is missing or out of range is reported in red under the fields,
-and *Run selected* does nothing until it is corrected.
+A parameter that is missing or out of range is named under the fields. *Run
+selected* does nothing until it is corrected, and the message turns red when the
+button is pressed in that state.
 
 ::: {.callout-tip}
 ## Reproducing the experiments of the book

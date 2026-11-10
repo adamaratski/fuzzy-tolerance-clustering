@@ -149,6 +149,32 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
     public bool ShowIntersections => SelectedAlgorithm is "D-PAFC";
     public bool ShowMaxClusterSize => SelectedAlgorithm is "D-AFC(u)";
 
+    private bool _runAttempted;
+
+    /// <summary>
+    /// True when Run was pressed with parameters that are missing or out of range: the message is
+    /// then shown as an error. Before that it is a plain hint on what the algorithm needs.
+    /// </summary>
+    public bool ProblemIsError => _runAttempted && ValidationError is not null;
+
+    /// <summary>Called when Run is pressed while the parameters are not valid.</summary>
+    public void MarkRunAttempt()
+    {
+        _runAttempted = true;
+        OnPropertyChanged(nameof(ProblemIsError));
+    }
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(ValidationError))
+        {
+            // once the parameters are valid again, the next problem starts as a hint
+            if (ValidationError is null) _runAttempted = false;
+            base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(ProblemIsError)));
+        }
+    }
+
     /// <summary>Validation message for the current parameters, or null if they are valid.</summary>
     public string? ValidationError
     {
@@ -216,6 +242,7 @@ public sealed partial class AlgorithmPanelViewModel : ObservableObject
 
     partial void OnSelectedAlgorithmChanged(string value)
     {
+        _runAttempted = false;   // another algorithm: its requirements are first shown as a hint
         OnPropertyChanged(nameof(ShowClusterCount));
         OnPropertyChanged(nameof(ShowAlphaSelector));
         OnPropertyChanged(nameof(ShowIntersections));

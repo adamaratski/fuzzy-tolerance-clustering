@@ -104,6 +104,11 @@ Desktop workbench
 - *Open data → Interval-valued data…*, *Fuzzy-number data…*, *Three-way data…* and *Asymmetric
   proximity matrix…*: the tolerance is built on loading with the default settings of the
   command-line tool, and every algorithm that accepts a tolerance matrix runs on it.
+- Interface: the tolerance matrix is shown as soon as attribute data are opened; a missing
+  parameter is a plain hint until *Run selected* is pressed and an error after that; the system
+  monitor is one line until *show* is pressed and uses one colour; parameter labels on one
+  line; the number of levels on the *Tolerance* tab is counted as by the algorithms (7 887 for
+  the Iris data); the window is titled *Fuzzy Tolerance Clustering*.
 
 Data files
 - `hung_ifs_membership.csv`, `hung_ifs_nonmembership.csv`, `cars5_ifs.csv`, `cars10_ifs.csv`.

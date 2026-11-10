@@ -56,7 +56,7 @@
                       Background="{StaticResource BackgroundBrush}"/>
 
         <TextBlock Grid.Row="1"
-                   Text="Load data and build the tolerance matrix to see the heatmap."
+                   Text="No tolerance matrix to show: open data, or the data set is too large for a heat map."
                    Style="{StaticResource LabelText}"
                    HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{Binding Plot, Converter={StaticResource NullToInvisibility}}"/>

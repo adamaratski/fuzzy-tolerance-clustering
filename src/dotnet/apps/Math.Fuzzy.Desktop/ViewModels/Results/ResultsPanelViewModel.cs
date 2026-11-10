@@ -122,14 +122,29 @@ public sealed partial class MatrixHeatmapTabViewModel(string title) : ResultTabV
         Plot = model;
     }
 
-    private static int CountLevels(double[,] m)
+    /// <summary>
+    /// The number of levels of the relation as the algorithms count them: the distinct values
+    /// strictly between 0 and 1, values that differ by rounding noise being one level.
+    /// </summary>
+    internal static int CountLevels(double[,] matrix)
     {
-        int size = m.GetLength(0);
-        var distinct = new HashSet<double>();
-        for (int i = 0; i < size; i++)
-        for (int j = i + 1; j < size; j++)
-            distinct.Add(System.Math.Round(m[i, j], 6));
-        return distinct.Count;
+        int size = matrix.GetLength(0);
+        var values = new List<double>(size * (size - 1) / 2);
+        for (int row = 0; row < size; row++)
+        for (int column = row + 1; column < size; column++)
+        {
+            double value = matrix[row, column];
+            if (value > 0.0 && value < 1.0) values.Add(value);
+        }
+        values.Sort();
+        int levels = 0;
+        double previous = double.NegativeInfinity;
+        foreach (double value in values)
+        {
+            if (value - previous > 1e-12) levels++;
+            previous = value;
+        }
+        return levels;
     }
 
     private static void AddMatrixAxes(PlotModel model, int size)

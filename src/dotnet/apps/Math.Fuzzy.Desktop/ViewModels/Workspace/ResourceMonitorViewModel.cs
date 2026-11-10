@@ -42,10 +42,8 @@ public sealed partial class ResourceMeterViewModel : ObservableObject
 /// </summary>
 public sealed partial class ResourceMonitorViewModel : ObservableObject, IDisposable
 {
-    private static readonly Brush CpuBrush = Frozen(0x11, 0x7D, 0xBB);
-    private static readonly Brush MemBrush = Frozen(0x8B, 0x12, 0xAE);
-    private static readonly Brush GpuBrush = Frozen(0xC2, 0x5B, 0x0A);
-    private static readonly Brush NpuBrush = Frozen(0x1A, 0x8F, 0x7E);
+    // One muted tone for every meter: the monitor is secondary to the results on the page.
+    private static readonly Brush MeterBrush = Frozen(0x6F, 0x86, 0x9B);
 
     private readonly ResourceSampler? _sampler;
     private readonly DispatcherTimer  _timer;
@@ -58,29 +56,28 @@ public sealed partial class ResourceMonitorViewModel : ObservableObject, IDispos
 
     [ObservableProperty] private bool _isPaused;
 
+    /// <summary>The meters are shown; when false only the one-line summary is.</summary>
+    [ObservableProperty] private bool _isExpanded;
+
+    /// <summary>Processor and memory load in one line, shown while the meters are hidden.</summary>
+    [ObservableProperty] private string _summary = "";
+
     public ResourceMonitorViewModel()
     {
         try { _sampler = new ResourceSampler(); }
         catch (Exception) { _sampler = null; }   // monitoring is best-effort; never break the app
 
-        _cpu = new ResourceMeterViewModel { Title = "CPU", Accent = CpuBrush, Subtitle = _sampler?.CpuName ?? "" };
-        _mem = new ResourceMeterViewModel { Title = "Memory", Accent = MemBrush };
+        _cpu = new ResourceMeterViewModel { Title = "CPU", Accent = MeterBrush, Subtitle = _sampler?.CpuName ?? "" };
+        _mem = new ResourceMeterViewModel { Title = "Memory", Accent = MeterBrush };
         Meters.Add(_cpu);
         Meters.Add(_mem);
 
         var adapters = _sampler?.Adapters ?? [];
         int gpuIndex = 0;
         foreach (var a in adapters.Where(a => a.Kind == AcceleratorKind.Gpu))
-            AddAccelerator(a, $"GPU {gpuIndex++}", GpuBrush);
+            AddAccelerator(a, $"GPU {gpuIndex++}", MeterBrush);
         foreach (var a in adapters.Where(a => a.Kind == AcceleratorKind.Npu))
-            AddAccelerator(a, "NPU", NpuBrush);
-
-        if (!adapters.Any(a => a.Kind == AcceleratorKind.Npu))
-            Meters.Add(new ResourceMeterViewModel
-            {
-                Title = "NPU", Accent = NpuBrush, Subtitle = "Not detected on this system",
-                IsAvailable = false
-            });
+            AddAccelerator(a, "NPU", MeterBrush);
 
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += async (_, _) => await TickAsync();
@@ -114,6 +111,8 @@ public sealed partial class ResourceMonitorViewModel : ObservableObject, IDispos
             double memPct = s.MemoryTotal > 0 ? 100.0 * s.MemoryUsed / s.MemoryTotal : 0;
             _mem.Push(memPct, Pct(memPct),
                 $"{Gb(s.MemoryUsed)} / {Gb(s.MemoryTotal)} GB · app {Mb(s.ProcessWorkingSet)}");
+
+            Summary = $"CPU {Pct(s.CpuPercent)} · memory {Pct(memPct)}";
 
             foreach (var (meter, luid) in _accelerators)
             {
