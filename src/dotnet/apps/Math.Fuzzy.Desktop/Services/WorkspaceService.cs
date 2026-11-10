@@ -8,7 +8,6 @@ using MathFuzzy.Core.Normalization;
 using MathFuzzy.Core.ThreeWay;
 using System.IO;
 using MathFuzzy.Core.Matrix;
-using MathFuzzy.Core.Normalization;
 
 namespace MathFuzzy.Desktop.Services;
 
