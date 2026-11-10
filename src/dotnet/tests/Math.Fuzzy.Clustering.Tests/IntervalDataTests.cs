@@ -254,15 +254,22 @@ public class IntervalDataTests
         Assert.Equal(0.8160, result.Tolerance[4, 1], 4);
     }
 
-    [Fact(Skip = "D-AFC(4) of the library finds no allotment: the book's V_QMF = 0.4451 belongs to the typical "
-               + "points x2, x6, x7, x8 at α = 0.831375, where x7 and x8 lie in each other's clusters and five objects "
-               + "are shared; it is reached only if w bounds the size of each pairwise intersection (here 2) instead "
-               + "of the number of shared objects, and typical points may belong to other clusters.")]
-    public void Oil_cross_bound_squared_euclidean_measure_for_four_clusters()
+    /// <summary>
+    /// The bound w is the number of objects shared by the clusters of an allotment, and two typical
+    /// points never lie in each other's clusters. Under this reading the oil data admit no allotment
+    /// among four clusters for the squared Euclidean measure. The value V_QMF = 0.4451 of the source
+    /// belongs to the typical points x2, x6, x7, x8 at α = 0.831375, where x7 and x8 lie in each
+    /// other's clusters and five objects are shared: it needs w as a bound on each pairwise
+    /// intersection.
+    /// </summary>
+    [Fact]
+    public void Oil_cross_bound_squared_euclidean_measure_admits_no_four_clusters()
     {
         var result = Run(Oils(), new StableStructureOptions(IntervalMeasure.SquaredEuclidean));
-        Assert.True(result.Candidates[2].IsAdmissible);
-        Assert.Equal(0.4451, result.Candidates[2].Validity!.Value, 4);  // reached with w = 2
+        var four = result.Candidates[2];
+        Assert.Equal(4, four.ClusterCount);
+        Assert.Null(four.Allotment);
+        Assert.False(four.IsAdmissible);
     }
 
     [Fact]
