@@ -66,7 +66,7 @@ from the `datasets` folder next to the executable: Anderson's Iris data
 2 attributes). If the folder is missing, the application starts empty and data
 can be opened with *Open data*.
 
-![The Dashboard at start-up with the sample data sets.](images/01-start.png){width=100%}
+![The Dashboard at start-up with the sample data sets; the tolerance matrix of the active data set is shown at once.](images/01-start.png){width=100%}
 
 # The screen
 
@@ -151,6 +151,8 @@ The *Tolerance* tab shows the matrix of memberships of such a workset. If an
 intuitionistic algorithm is started on ordinary data, or an ordinary algorithm on
 intuitionistic data, the status bar says what to open or which category to choose.
 
+![D-AIFC(c) with $c = 3$ on the intuitionistic fuzzy tolerance of ten objects: the table has the two thresholds α and β, and the status bar shows the bound $w$.](images/24-intuitionistic.png){width=100%}
+
 ## Interval-valued, fuzzy-number, three-way and asymmetric data {#sec-other-data}
 
 Four further items of the *Open data* menu, below the intuitionistic ones, read
@@ -188,6 +190,8 @@ constructions (other interval measures, the Ju–Yuan exponent, likeness instead
 quasi-equivalence and so on) are available in the command-line tool
 (@sec-cli). Since these worksets have no attributes in the sense of the CSV
 files, the remarks on tolerance matrices apply to them as well.
+
+![The oil data opened as interval-valued data: the workset line names the kind of data, and the tolerance built on loading is shown on the *Tolerance* tab.](images/26-interval-data.png){width=100%}
 
 ## The data page
 
@@ -227,9 +231,9 @@ The blue chip at the top of the panel always shows the selected algorithm.
 
 : The algorithms of the workbench. {#tbl-algorithms}
 
-![The prototype-based category with its *Variant* box (the screenshot shows version 1.0; version 1.1 adds D-AFC-TAGA(α) to the list).](images/19-prototype-variants.png){width=100%}
+![The prototype-based category with its *Variant* box open: the algorithms on the transitive closure (TC), on a transitive opening (TO) and on a transitive approximation (TAGA).](images/19-prototype-variants.png){width=100%}
 
-![The relational category with D-AFC selected; the fields *Clusters c* and *α levels* belong to this algorithm. Until *c* is entered the panel says which parameter is missing; the screenshot shows version 1.0, where the message was red from the start.](images/08-relational.png){width=100%}
+![The relational category with D-AFC selected; the fields *Clusters c* and *α levels* belong to this algorithm. Until *c* is entered the panel says under the fields which parameter is missing.](images/08-relational.png){width=100%}
 
 ![D-PAFC does not need *c*; instead the field *Intersections w* sets how many objects may belong to more than one cluster.](images/14-relational-dpafc.png){width=100%}
 
@@ -283,6 +287,8 @@ The lower part depends on the algorithm:
   approximation — maximum (the transitive closure), minimum, mean, median, upper
   and lower median. *Automatic* computes all six approximations and takes the one
   nearest to $T$.
+
+![D-AFC-PS(c) on the Yang–Wu data with two labelled objects, the squared Euclidean distance and normalisation by the maximum.](images/25-labelled-objects.png){width=100%}
 
 ![D-AFC-TC(α) with its field *α\* threshold*.](images/20-dafc-tc-alpha.png){width=100%}
 
@@ -367,9 +373,10 @@ the right.
 
 ## Tolerance
 
-The tolerance matrix $T$ built with the parameters of the last run, and — with
-the button *T̃ (closure)* — its max-min transitive closure. The number of distinct
-levels is shown at the right; the *α-slice* slider blanks every entry below the
+The tolerance matrix $T$ — built with the current distance and normalisation when
+the data are opened, and with the parameters of the run after a run — and, with
+the button *T̃ (closure)*, its max-min transitive closure. The number of levels,
+counted as the algorithms count them, is shown at the right; the *α-slice* slider blanks every entry below the
 chosen level, which shows the crisp relation $T_\alpha$ at that level. Objects are
 in file order.
 

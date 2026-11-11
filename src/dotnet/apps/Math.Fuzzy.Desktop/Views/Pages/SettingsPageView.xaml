@@ -38,9 +38,9 @@
                 CornerRadius="6" Padding="16,12">
             <StackPanel>
                 <TextBlock Style="{StaticResource PageTitle}" FontSize="15"
-                           Text="Math.Fuzzy — Possibilistic Clustering Suite"/>
+                           Text="Fuzzy Tolerance Clustering — Workbench"/>
                 <TextBlock Style="{StaticResource LabelText}" TextWrapping="Wrap" Margin="0,8,0,0"
-                           Text="Heuristic possibilistic clustering (Viattchenin): D-AFC family with transitive closure, TAGA aggregation, hierarchical and dimensionality-reduction variants."/>
+                           Text="Heuristic possibilistic clustering (Viattchenin): the D-AFC family on a tolerance, its transitive closure, opening and approximations, with partial supervision, for intuitionistic, interval-valued, fuzzy-number, three-way and asymmetric data; hierarchical and dimensionality-reduction variants."/>
                 <Grid Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="160"/>
@@ -54,7 +54,7 @@
                     <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource InfoLabel}" Text="Engine"/>
                     <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource InfoValue}" HorizontalAlignment="Left" Text="Math.Fuzzy.Clustering (bitset D-AFC core)"/>
                     <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource InfoLabel}" Text="CLI"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource InfoValue}" HorizontalAlignment="Left" Text="mfuzzy cluster | matrix | reduce | infer"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource InfoValue}" HorizontalAlignment="Left" Text="mfuzzy cluster | size | bounds | matrix | reduce | infer | preference | interval-stability | …"/>
                 </Grid>
             </StackPanel>
         </Border>
