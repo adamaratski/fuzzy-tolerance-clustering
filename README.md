@@ -413,7 +413,8 @@ Planned ([`src/python`](src/python)). The package will mirror the .NET library's
 If you use this software, cite the book. Also cite the archived release used for
 your computations, so the exact version can be traced ([`CITATION.cff`](CITATION.cff)).
 Every release is archived on Zenodo: the DOI [10.5281/zenodo.23856861](https://doi.org/10.5281/zenodo.23856861)
-always resolves to the latest version; version 1.0.0 is
+always resolves to the latest version; version 1.1.0 is
+[10.5281/zenodo.24131773](https://doi.org/10.5281/zenodo.24131773) and version 1.0.0 is
 [10.5281/zenodo.23856862](https://doi.org/10.5281/zenodo.23856862).
 
 The code is released under the [MIT License](LICENSE). The data sets keep the
